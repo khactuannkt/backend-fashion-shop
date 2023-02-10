@@ -25,12 +25,22 @@ const userSchema = mongoose.Schema(
             type: String,
             required: true,
         },
-        isAdmin: {
-            type: Boolean,
+        role: {
+            type: String,
             required: true,
-            default: false,
+            default: 'user',
         },
-        address: {
+        avatar: {
+            type: String,
+        },
+        gender: {
+            type: String,
+            enum: ['male', 'female', 'other'],
+        },
+        birthday: {
+            type: Date,
+        },
+        country: {
             type: String,
             required: false,
         },
@@ -38,15 +48,16 @@ const userSchema = mongoose.Schema(
             type: String,
             required: false,
         },
-        country: {
+        address: {
             type: String,
             required: false,
         },
-        role: {
-            type: String,
-            required: true,
-            default: 'user',
-        },
+        discountCode: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'DiscountCode',
+            },
+        ],
         emailVerificationToken: {
             type: String,
             required: false,
@@ -63,6 +74,11 @@ const userSchema = mongoose.Schema(
         resetPasswordTokenExpiryTime: {
             type: Number,
             required: false,
+        },
+        disabled: {
+            type: Boolean,
+            required: true,
+            default: false,
         },
     },
     {
@@ -95,7 +111,6 @@ userSchema.pre('save', async function (next) {
     }
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
-    console.log(this.password);
 });
 
 const User = mongoose.model('User', userSchema);

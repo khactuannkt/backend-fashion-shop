@@ -5,9 +5,11 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const cloudinaryUpload = (file) => {
+const cloudinaryUpload = (file, folder, public_id) => {
     return cloudinary.uploader.upload(file, {
         resource_type: 'auto',
+        folder: folder,
+        public_id: public_id,
     });
 };
 

@@ -226,7 +226,7 @@ const updateProduct = async (req, res) => {
     product.countInStock = countInStock || product.countInStock;
     //update image
     if (req.file) {
-        const image = await cloudinaryUpload(req.file.path);
+        const image = await cloudinaryUpload(req.file.path, 'FashionShop/products');
         if (!image) {
             res.status(404);
             throw new Error('Error while uploading image');
@@ -301,7 +301,7 @@ const createProduct = async (req, res) => {
         throw new Error('Product must have at least one variant');
     }
     if ((!image || image.length == 0) && req.file) {
-        image = await cloudinaryUpload(req.file.path);
+        image = await cloudinaryUpload(req.file.path, 'FashionShop/products');
         if (!image) {
             res.status(500);
             throw new Error('Error while uploading image');

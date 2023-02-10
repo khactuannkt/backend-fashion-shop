@@ -10,7 +10,7 @@ import productRouter from './routes/product.route.js';
 import { errorHandler, notFound } from './middlewares/error.middleware.js';
 import userRouter from './routes/user.route.js';
 import orderRouter from './routes/order.route.js';
-import sliderRouter from './routes/slider.route.js';
+import bannerRouter from './routes/banner.route.js';
 import cartRouter from './routes/cart.route.js';
 import categoryRouter from './routes/category.route.js';
 import testRouter from './routes/test.route.js';
@@ -35,7 +35,7 @@ app.use(
 );
 // API
 app.use('/api/cart', cartRouter);
-app.use('/api/slider', sliderRouter);
+app.use('/api/banner', bannerRouter);
 app.use('/api/import', ImportData);
 app.use('/api/product', productRouter);
 app.use('/api/user', userRouter);

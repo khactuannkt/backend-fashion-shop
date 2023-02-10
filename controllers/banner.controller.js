@@ -1,24 +1,40 @@
 import * as fs from 'fs';
-import Slider from '../models/slider.model.js';
+import Banner from '../models/banner.model.js';
 import { cloudinaryUpload, cloudinaryRemove } from '../utils/cloudinary.js';
 
-const getSliders = async (req, res) => {
-    const sliders = await Slider.find({}).sort({ _id: -1 });
-    res.status(200);
-    res.json(sliders);
+const getBanners = async (req, res) => {
+    try {
+        const banners = await Banner.find({ role: 'banner' }).sort({ index: 1 });
+        res.status(200);
+        res.json({ success: true, message: '', banners });
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
 };
 
-const getSliderById = async (req, res) => {
-    const slider = await Slider.findById(req.params.id);
-    if (!slider) {
+const getSliders = async (req, res) => {
+    try {
+        const sliders = await Banner.find({ role: 'slider' }).sort({ index: 1 });
+        res.status(200);
+        res.json({ success: true, message: '', sliders });
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).json({ success: false, message: 'Server Error' });
+    }
+};
+
+const getBannerById = async (req, res) => {
+    const banner = await Banner.findById(req.params.id);
+    if (!banner) {
         res.status(404);
-        throw new Error('Slider not found');
+        throw new Error('Banner not found');
     }
     res.status(200);
-    res.json(slider);
+    res.json(banner);
 };
 
-const createSliders = async (req, res) => {
+const createBanners = async (req, res) => {
     if (!req.files || req.files.length == 0) {
         res.status(400);
         throw new Error('Image not provided');
@@ -27,25 +43,25 @@ const createSliders = async (req, res) => {
         const image = await cloudinaryUpload(file.path);
         if (!image) {
             res.status(500);
-            throw new Error('Some sliders was not uploaded due to unknown error');
+            throw new Error('Some banners was not uploaded due to unknown error');
         }
         fs.unlink(file.path, (error) => {
             if (error) {
                 throw new Error(error);
             }
         });
-        const slider = new Slider({
+        const banner = new Banner({
             url: image.secure_url,
         });
-        return slider.save();
+        return banner.save();
     });
     await Promise.all(uploadImages);
     res.status(201);
-    res.json({ message: 'Sliders are added' });
+    res.json({ message: 'Banners are added' });
 };
 
 const updateSlider = async (req, res) => {
-    const slider = await Slider.findById(req.params.id);
+    const slider = await Banner.findById(req.params.id);
     if (!slider) {
         res.status(404);
         throw new Error('Slider not found');
@@ -69,7 +85,7 @@ const updateSlider = async (req, res) => {
 };
 
 const deleteSlider = async (req, res) => {
-    const deletedSlider = await Slider.findByIdAndDelete(req.params.id);
+    const deletedSlider = await Banner.findByIdAndDelete(req.params.id);
     if (!deletedSlider) {
         res.status(404);
         throw new Error('Slider not found');
@@ -80,5 +96,12 @@ const deleteSlider = async (req, res) => {
     res.json({ message: 'Slider is deleted' });
 };
 
-const sliderController = { getSliders, getSliderById, createSliders, updateSlider, deleteSlider };
+const sliderController = {
+    getBanners,
+    getSliders,
+    getBannerById,
+    createSliders: createBanners,
+    updateSlider,
+    deleteSlider,
+};
 export default sliderController;

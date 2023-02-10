@@ -1,11 +1,11 @@
 import express from 'express';
 import User from './models/user.model.js';
 import Product from './models/product.model.js';
-import Slider from './models/slider.model.js';
+import Banner from './models/banner.model.js';
 import users from './data/users.js';
 import products from './data/Products.js';
 import asyncHandler from 'express-async-handler';
-import { slider } from './data/slider.js';
+import { banner } from './data/banner.js';
 const ImportData = express.Router();
 
 ImportData.post(
@@ -26,11 +26,11 @@ ImportData.post(
     }),
 );
 ImportData.post(
-    '/slider',
+    '/banner',
     asyncHandler(async (req, res) => {
-        await Slider.remove({});
-        const importSlider = await Slider.insertMany(slider);
-        res.send({ importSlider });
+        await Banner.remove({});
+        const importBanner = await Banner.insertMany(banner);
+        res.send({ importBanner });
     }),
 );
 

@@ -4,15 +4,20 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
     auth: {
-        user: process.env.GMAIL_USER,
+        user: process.env.GMAIL_APP,
         pass: process.env.GMAIL_APP_PASSWORD,
+    },
+    tls: {
+        rejectUnauthorized: false,
     },
 });
 const sendMail = (messageOptions) => {
     const message = {
-        from: process.env.GMAIL_USER,
+        from: process.env.GMAIL_APP,
         to: messageOptions.recipient,
         subject: messageOptions.subject,
         text: messageOptions.text,

@@ -5,6 +5,8 @@ const orderStatus = mongoose.Schema(
         status: {
             type: String,
             required: true,
+            enum: ['pending', 'delivering', 'delivered', 'cancelled'],
+            default: 'pending',
         },
         description: {
             type: String,
@@ -16,7 +18,47 @@ const orderStatus = mongoose.Schema(
         timestamps: true,
     },
 );
-
+const orderItem = mongoose.Schema({
+    // variant: {
+    //     type: mongoose.Schema.Types.ObjectId,
+    //     required: true,
+    //     ref: 'Variant',
+    // },
+    product: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        ref: 'Product',
+    },
+    name: {
+        type: String,
+        required: true,
+    },
+    image: {
+        type: String,
+        required: true,
+    },
+    quantity: {
+        type: Number,
+        required: true,
+    },
+    size: {
+        type: String,
+        required: true,
+    },
+    color: {
+        type: String,
+        required: true,
+    },
+    price: {
+        type: Number,
+        required: true,
+    },
+    isAbleToReview: {
+        type: Boolean,
+        required: true,
+        default: false,
+    },
+});
 const orderSchema = mongoose.Schema(
     {
         user: {
@@ -28,50 +70,12 @@ const orderSchema = mongoose.Schema(
             type: String,
             required: true,
         },
-        orderItems: [
-            {
-                variant: {
-                    type: mongoose.Schema.Types.ObjectId,
-                    required: true,
-                    ref: 'Variant',
-                },
-                product: {
-                    type: mongoose.Schema.Types.ObjectId,
-                    required: true,
-                    ref: 'Product',
-                },
-                name: {
-                    type: String,
-                    required: true,
-                },
-                image: {
-                    type: String,
-                    required: true,
-                },
-                quantity: {
-                    type: Number,
-                    required: true,
-                },
-                size: {
-                    type: String,
-                    required: true,
-                },
-                color: {
-                    type: String,
-                    required: true,
-                },
-                price: {
-                    type: Number,
-                    required: true,
-                },
-                isAbleToReview: {
-                    type: Boolean,
-                    required: true,
-                    default: false,
-                },
-            },
-        ],
+        orderItems: [orderItem],
         shippingAddress: {
+            phone: {
+                type: String,
+                required: true,
+            },
             address: {
                 type: String,
                 required: true,
@@ -80,7 +84,7 @@ const orderSchema = mongoose.Schema(
                 type: String,
                 required: true,
             },
-            postalCode: {
+            zipCode: {
                 type: String,
                 required: false,
             },
@@ -104,42 +108,32 @@ const orderSchema = mongoose.Schema(
             required: true,
             default: 0.0,
         },
+        discountCode: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'DiscountCode',
+            },
+        ],
+        totalDiscount: {
+            type: Number,
+            required: true,
+            default: 0,
+        },
         totalPrice: {
             type: Number,
             required: true,
             default: 0.0,
-        },
-        // isPaid: {
-        //     type: Boolean,
-        //     required: true,
-        //     default: false,
-        // },
-        // paidAt: {
-        //     type: Date,
-        // },
-        // isDelivered: {
-        //     type: Boolean,
-        //     required: true,
-        //     default: false,
-        // },
-        // deliveredAt: {
-        //     type: Date,
-        // },
-        contactInformation: {
-            phone: {
-                type: String,
-                require: true,
-            },
-            email: {
-                type: String,
-                require: true,
-            },
         },
         status: {
             type: String,
             required: true,
         },
         statusHistory: [orderStatus],
+        disabled: {
+            type: Boolean,
+            required: true,
+            default: false,
+        },
     },
     {
         timestamps: true,
