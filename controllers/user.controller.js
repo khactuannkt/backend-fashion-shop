@@ -3,110 +3,235 @@ import schedule, { scheduleJob } from 'node-schedule';
 import crypto from 'crypto';
 import User from '../models/user.model.js';
 import Cart from '../models/cart.model.js';
+import Token from '../models/token.model.js';
 import { sendMail } from '../utils/nodemailler.js';
 import generateAuthToken from '../utils/generateToken.js';
 import { htmlMailVerify, htmlResetEmail } from '../common/LayoutMail.js';
 import image from '../assets/images/index.js';
+import { check, validationResult } from 'express-validator';
 
 dotenv.config();
 
-const login = async (req, res) => {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email: email, isVerified: true });
-
-    if (user && (await user.matchPassword(password))) {
-        res.status(200);
-        res.json({
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            isAdmin: user.isAdmin,
-            role: user.role,
-            accessToken: generateAuthToken({ _id: user._id }),
-            phone: user.phone,
-            address: user.address,
-            city: user.city,
-            country: user.country,
-            createdAt: user.createdAt,
-            updatedAt: user.updatedAt,
-        });
-    } else {
-        res.status(401);
-        throw new Error('Invalid Email or Password');
-    }
-};
-
-const register = async (req, res, next) => {
-    const { name, phone, password } = req.body;
-    const email = req.body.email.toString().toLowerCase();
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-        res.status(400);
-        throw new Error('User already exists');
-    }
-    const user = await User.create({
-        name,
-        email,
-        phone,
-        password,
-    });
-    const emailVerificationToken = user.getEmailVerificationToken();
-    await user.save();
-    const url = `${process.env.USER_PAGE_URL}register/confirm?emailVerificationToken=${emailVerificationToken}`;
-    const html = htmlMailVerify(emailVerificationToken);
-
-    //start cron-job
-    let scheduledJob = schedule.scheduleJob(`*/${process.env.EMAIL_VERIFY_EXPIED_TIME_IN_MINUTE} * * * *`, async () => {
-        console.log('Job run');
-        const foundUser = await User.findOneAndDelete({ _id: user._id, isVerified: false });
-        console.log(foundUser);
-        scheduledJob.cancel();
-    });
-    //set up message options
-    const messageOptions = {
-        recipient: user.email,
-        subject: 'Verify Email',
-        html: html,
-    };
-    //send verify email
+const login = async (req, res, next) => {
     try {
-        await sendMail(messageOptions);
-        res.status(200);
-        res.json({ message: 'Sending verification mail successfully' });
+        // Validate the request data using express-validator
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            const errorMessages = errors.array().reduce((acc, error) => {
+                const { param, msg } = error;
+                if (!acc[param]) {
+                    acc[param] = msg;
+                }
+                return acc;
+            }, {});
+            return res.status(400).json({ success: false, message: 'An error occurred', errors: errorMessages });
+        }
+
+        const { email, password } = req.body;
+        const user = await User.findOne({ email });
+
+        if (user && (await user.matchPassword(password))) {
+            if (user.isVerified === false) {
+                res.status(401);
+                throw new Error(
+                    'Your account has not been verified. Please check your email to verify your account before logging in.',
+                );
+            }
+            const userData = {
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                phone: user.phone,
+                avatar: user.avatar,
+                gender: user.gender,
+                birthday: user.birthday,
+                address: user.address,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt,
+            };
+            const accessToken = generateAuthToken({ _id: user._id }, process.env.ACCESS_JWT_SECRET, {
+                expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN_MINUTE * 60 * 1000,
+            });
+            const refreshToken = generateAuthToken({ _id: user._id }, process.env.REFRESH_JWT_SECRET, {
+                expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN_MINUTE * 60 * 1000,
+            });
+            const newToken = await new Token({
+                user: user._id,
+                accessToken: accessToken,
+                refreshToken: refreshToken,
+            }).save();
+            if (!newToken) {
+                res.status(500);
+                throw new Error('Authentication token generation failed');
+            }
+            res.status(200).json({
+                success: true,
+                data: {
+                    user: userData,
+                    accessToken: accessToken,
+                    refreshToken: refreshToken,
+                },
+            });
+        } else {
+            res.status(401);
+            throw new Error('Invalid email or password');
+        }
     } catch (error) {
         next(error);
     }
 };
 
-const verifyEmail = async (req, res) => {
-    const emailVerificationToken = req.query.emailVerificationToken || null;
-    const hashedToken = crypto.createHash('sha256').update(emailVerificationToken).digest('hex');
-    const user = await User.findOne({ emailVerificationToken: hashedToken, isVerified: false });
-    if (!user) {
-        res.status(400);
-        throw new Error('Email verification token is not valid');
+const register = async (req, res, next) => {
+    try {
+        // Validate the request data using express-validator
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            const errorMessages = errors.array().reduce((acc, error) => {
+                const { param, msg } = error;
+                if (!acc[param]) {
+                    acc[param] = msg;
+                }
+                return acc;
+            }, {});
+            return res.status(400).json({ success: false, message: 'An error occurred', errors: errorMessages });
+        }
+
+        const { name, phone, password } = req.body;
+        const email = req.body.email.toString().toLowerCase();
+        const userExists = await User.findOne({ email });
+        if (userExists) {
+            res.status(400);
+            throw new Error('User already exists');
+        }
+
+        const user = await User.create({
+            name,
+            email,
+            phone,
+            password,
+        });
+        const emailVerificationToken = user.getEmailVerificationToken();
+        await user.save();
+
+        const url = `${process.env.USER_PAGE_URL}register/confirm?emailVerificationToken=${emailVerificationToken}`;
+        const html = htmlMailVerify(emailVerificationToken);
+
+        //start cron-job
+        let scheduledJob = schedule.scheduleJob(
+            `*/${process.env.EMAIL_VERIFY_EXPIED_TIME_IN_MINUTE} * * * *`,
+            async () => {
+                console.log('Deletion of unverified users begins');
+                const foundUser = await User.findOneAndDelete({
+                    _id: user._id,
+                    isVerified: false,
+                });
+                scheduledJob.cancel();
+            },
+        );
+
+        //set up message options
+        const messageOptions = {
+            recipient: user.email,
+            subject: 'Verify Email',
+            html: html,
+        };
+
+        //send verify email
+        await sendMail(messageOptions);
+        res.status(200).json({
+            success: true,
+            message:
+                'Successful account registration. Please access your email to verify your account. Registration requirements will expire within 24 hours.',
+        });
+    } catch (error) {
+        next(error);
     }
-    user.isVerified = true;
-    user.emailVerificationToken = null;
-    const verifiedUser = await user.save();
-    const cart = await Cart.create({
-        user: verifiedUser._id,
-        cartItems: [],
-    });
-    res.status(200);
-    res.json({ accessToken: generateAuthToken({ _id: verifiedUser._id }) });
 };
 
-const cancelVerifyEmail = async (req, res) => {
-    const emailVerificationToken = req.query.emailVerificationToken || null;
-    const hashedToken = crypto.createHash('sha256').update(emailVerificationToken).digest('hex');
-    const user = await User.findOneAndDelete({ emailVerificationToken: hashedToken, isVerified: false });
-    if (!user) {
-        res.status(400);
-        throw new Error('Email verification token is not valid');
+const verifyEmail = async (req, res, next) => {
+    try {
+        const emailVerificationToken = req.query.emailVerificationToken.toString().trim();
+        if (!emailVerificationToken || emailVerificationToken === '') {
+            res.status(400);
+            throw new Error('Email verification token is required');
+        }
+        const hashedToken = crypto.createHash('sha256').update(emailVerificationToken).digest('hex');
+        const user = await User.findOne({ emailVerificationToken: hashedToken, isVerified: false });
+        if (!user) {
+            res.status(400);
+            throw new Error('Email verification token is not valid');
+        }
+        user.isVerified = true;
+        user.emailVerificationToken = null;
+        const verifiedUser = await user.save();
+        if (!verifiedUser) {
+            res.status(500);
+            throw new Error('Account verification failed');
+        }
+        const userData = {
+            _id: verifiedUser._id,
+            name: verifiedUser.name,
+            email: verifiedUser.email,
+            role: verifiedUser.role,
+            phone: verifiedUser.phone,
+            avatar: verifiedUser.avatar,
+            gender: verifiedUser.gender,
+            birthday: verifiedUser.birthday,
+            address: verifiedUser.address,
+            createdAt: verifiedUser.createdAt,
+            updatedAt: verifiedUser.updatedAt,
+        };
+        const cart = await Cart.create({
+            user: verifiedUser._id,
+            cartItems: [],
+        });
+        const accessToken = generateAuthToken({ _id: verifiedUser._id }, process.env.ACCESS_JWT_SECRET, {
+            expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN_MINUTE * 60 * 1000,
+        });
+        const refreshToken = generateAuthToken({ _id: verifiedUser._id }, process.env.ACCESS_JWT_SECRET, {
+            expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN_MINUTE * 60 * 1000,
+        });
+        const newToken = await new Token({
+            user: verifiedUser._id,
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+        }).save();
+        if (!newToken) {
+            res.status(500);
+            throw new Error('Authentication token generation failed');
+        }
+        res.status(200).json({
+            success: true,
+            message: 'Email verification successful',
+            data: {
+                user: userData,
+                accessToken: newToken.accessToken,
+                refreshToken: newToken.refreshToken,
+            },
+        });
+    } catch (error) {
+        next(error);
     }
-    res.status(200);
-    res.json('Canceling email verification succeed');
+};
+
+const cancelVerifyEmail = async (req, res, next) => {
+    try {
+        const emailVerificationToken = req.query.emailVerificationToken.toString().trim();
+        if (!emailVerificationToken || emailVerificationToken === '') {
+            res.status(400);
+            throw new Error('Email verification token is required');
+        }
+        const hashedToken = crypto.createHash('sha256').update(emailVerificationToken).digest('hex');
+        const user = await User.findOneAndDelete({ emailVerificationToken: hashedToken, isVerified: false });
+        if (!user) {
+            res.status(400);
+            throw new Error('Email verification token is not valid');
+        }
+        res.status(200).json({ success: true, message: 'Canceling email verification succeed' });
+    } catch (error) {
+        next(error);
+    }
 };
 
 const forgotPassword = async (req, res) => {

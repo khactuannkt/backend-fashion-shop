@@ -12,6 +12,47 @@ const reviewSchema = mongoose.Schema(
     },
 );
 
+const variantSchema = mongoose.Schema(
+    {
+        // product: {
+        //     type: mongoose.Schema.Types.ObjectId,
+        //     required: true,
+        //     ref: 'Product',
+        // },
+        size: {
+            type: String,
+            required: true,
+        },
+        color: {
+            type: String,
+            required: true,
+        },
+        price: {
+            type: Number,
+            required: true,
+        },
+        priceSale: {
+            type: Number,
+            required: true,
+        },
+        image: {
+            type: Number,
+        },
+        quantity: {
+            type: Number,
+            required: true,
+        },
+        disabled: {
+            type: Boolean,
+            required: true,
+            default: false,
+        },
+    },
+    {
+        timestamps: true,
+    },
+);
+
 const productSchema = mongoose.Schema(
     {
         name: {
@@ -56,12 +97,7 @@ const productSchema = mongoose.Schema(
             required: false,
             default: 0,
         },
-        variants: [
-            {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: 'Variant',
-            },
-        ],
+        variants: [variantSchema],
         reviews: [reviewSchema],
         rating: {
             type: Number,

@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 const bannerSchema = new mongoose.Schema(
     {
-        name: {
+        title: {
             type: String,
             required: true,
         },
@@ -11,7 +11,7 @@ const bannerSchema = new mongoose.Schema(
             required: true,
             default: 0,
         },
-        image: {
+        imageUrl: {
             type: String,
             require: true,
         },
@@ -21,8 +21,8 @@ const bannerSchema = new mongoose.Schema(
         role: {
             type: String,
             required: true,
-            enum: ['slide', 'banner'],
-            default: 'slide',
+            enum: ['slider', 'banner'],
+            default: 'slider',
         },
         disabled: {
             type: Boolean,

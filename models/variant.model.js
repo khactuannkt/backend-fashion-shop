@@ -2,11 +2,11 @@ import mongoose from 'mongoose';
 
 const variantSchema = mongoose.Schema(
     {
-        product: {
-            type: mongoose.Schema.Types.ObjectId,
-            required: true,
-            ref: 'Product',
-        },
+        // product: {
+        //     type: mongoose.Schema.Types.ObjectId,
+        //     required: true,
+        //     ref: 'Product',
+        // },
         size: {
             type: String,
             required: true,

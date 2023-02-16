@@ -6,6 +6,17 @@ const cartItem = new mongoose.Schema(
             required: true,
             ref: 'Variant',
         },
+        size: {
+            type: String,
+            required: true,
+        },
+        color: {
+            type: String,
+            required: true,
+        },
+        image: {
+            type: Number,
+        },
         quantity: {
             type: Number,
             required: true,

@@ -28,7 +28,8 @@ const userSchema = mongoose.Schema(
         role: {
             type: String,
             required: true,
-            default: 'user',
+            enum: ['admin', 'staff', 'customer'],
+            default: 'customer',
         },
         avatar: {
             type: String,
@@ -40,17 +41,35 @@ const userSchema = mongoose.Schema(
         birthday: {
             type: Date,
         },
-        country: {
-            type: String,
-            required: false,
-        },
-        city: {
-            type: String,
-            required: false,
-        },
+        // country: {
+        //     type: String,
+        //     required: false,
+        // },
+        // city: {
+        //     type: String,
+        //     required: false,
+        // },
+        // address: {
+        //     type: String,
+        //     required: false,
+        // },
         address: {
-            type: String,
-            required: false,
+            province: {
+                type: String,
+                default: '',
+            },
+            district: {
+                type: String,
+                default: '',
+            },
+            ward: {
+                type: String,
+                default: '',
+            },
+            specificAddress: {
+                type: String,
+                default: '',
+            },
         },
         discountCode: [
             {

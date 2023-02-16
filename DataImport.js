@@ -6,14 +6,19 @@ import users from './data/users.js';
 import products from './data/Products.js';
 import asyncHandler from 'express-async-handler';
 import { banner } from './data/banner.js';
+import Cart from './models/cart.model.js';
 const ImportData = express.Router();
 
 ImportData.post(
     '/user',
     asyncHandler(async (req, res) => {
         await User.remove({});
+        await Cart.remove({});
         const importUser = await User.insertMany(users);
-        res.send({ importUser });
+        const carts = [];
+        importUser.map((user) => carts.push({ user: user._id }));
+        const importCart = await Cart.insertMany(carts);
+        res.send({ importUser, importCart });
     }),
 );
 

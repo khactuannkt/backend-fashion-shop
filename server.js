@@ -40,7 +40,7 @@ app.use('/api/import', ImportData);
 app.use('/api/product', productRouter);
 app.use('/api/user', userRouter);
 app.use('/api/order', orderRouter);
-app.use('/api/categorie', categoryRouter);
+app.use('/api/categories', categoryRouter);
 app.use('/api/test', testRouter);
 app.get('/api/config/paypal', (req, res) => {
     res.send(process.env.PAYPAL_CLIENT_ID);

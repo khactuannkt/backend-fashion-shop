@@ -25,66 +25,84 @@ const getSliders = async (req, res) => {
 };
 
 const getBannerById = async (req, res) => {
-    const banner = await Banner.findById(req.params.id);
-    if (!banner) {
-        res.status(404);
-        throw new Error('Banner not found');
+    try {
+        const banner = await Banner.findById(req.params.id);
+        if (!banner) {
+            throw new Error('Banner not found');
+        }
+        return res.status(200).json({ success: true, message: '', banner });
+    } catch (error) {
+        return res.status(404).json({ success: false, message: error.message });
     }
-    res.status(200);
-    res.json(banner);
 };
 
 const createBanners = async (req, res) => {
-    if (!req.files || req.files.length == 0) {
-        res.status(400);
-        throw new Error('Image not provided');
+    if (
+        !req.files ||
+        req.files.length === 0 ||
+        !req.title ||
+        req.title.trim() === '' ||
+        !req.imageUrl ||
+        req.imageUrl.trim() === '' ||
+        !req.role ||
+        req.role.trim() === ''
+    ) {
+        return res.status(400).json({ success: false, message: 'Banner information is not provided enough' });
     }
-    const uploadImages = req.files.map(async (file) => {
-        const image = await cloudinaryUpload(file.path);
-        if (!image) {
-            res.status(500);
-            throw new Error('Some banners was not uploaded due to unknown error');
-        }
-        fs.unlink(file.path, (error) => {
-            if (error) {
-                throw new Error(error);
+    try {
+        const uploadImages = req.files.map(async (file) => {
+            const image = await cloudinaryUpload(file.path, 'FashtionShop/banners');
+            if (!image) {
+                throw new Error('Some banners were not uploaded due to an unknown error');
             }
+            fs.unlink(file.path, (error) => {
+                if (error) {
+                    throw new Error(error);
+                }
+            });
+            const banner = new Banner({
+                title: req.title,
+                imageUrl: image.secure_url,
+                linkTo: req.linkTo || '',
+                role: req.role,
+            });
+            return banner.save();
         });
-        const banner = new Banner({
-            url: image.secure_url,
-        });
-        return banner.save();
-    });
-    await Promise.all(uploadImages);
-    res.status(201);
-    res.json({ message: 'Banners are added' });
+        await Promise.all(uploadImages);
+        return res.status(201).json({ success: true, message: 'Banners are added' });
+    } catch (error) {
+        console.error(error.message);
+        return res.status(500).json({ success: false, message: error.message });
+    }
 };
 
-const updateSlider = async (req, res) => {
-    const slider = await Banner.findById(req.params.id);
-    if (!slider) {
-        res.status(404);
-        throw new Error('Slider not found');
+const updateBanner = async (req, res) => {
+    try {
+        const banner = await Banner.findById(req.params.id);
+        if (!banner) {
+            return res.status(404).json({ success: true, message: 'Banner not found' });
+        }
+        if (!req.file) {
+            return res.status(400).json({ success: true, message: 'Image not provided' });
+        }
+        const image = await cloudinaryUpload(req.file.path);
+        if (!image) {
+            throw new Error('Error while uploading image');
+        }
+        const publicId = banner.url.split('.').pop();
+        const removeOldImageCloudinary = cloudinaryRemove(publicId);
+        const removeNewImageLocal = fs.promises.unlink(req.file.path);
+        banner.url = image.secure_url.toString();
+        const [newSlider, ...rest] = await Promise.all([banner.save(), removeOldImageCloudinary, removeNewImageLocal]);
+        res.status(200);
+        res.json(newSlider);
+    } catch (error) {
+        console.error(error.message);
+        return res.status(500).json({ success: false, message: error.message });
     }
-    if (!req.file) {
-        res.status(400);
-        throw new Error('Image not provided');
-    }
-    const image = await cloudinaryUpload(req.file.path);
-    if (!image) {
-        res.status(500);
-        throw new Error('Error while uploading image');
-    }
-    const publicId = slider.url.split('.').pop();
-    const removeOldImageCloudinary = cloudinaryRemove(publicId);
-    const removeNewImageLocal = fs.promises.unlink(req.file.path);
-    slider.url = image.secure_url.toString();
-    const [newSlider, ...rest] = await Promise.all([slider.save(), removeOldImageCloudinary, removeNewImageLocal]);
-    res.status(200);
-    res.json(newSlider);
 };
 
-const deleteSlider = async (req, res) => {
+const deleteBanner = async (req, res) => {
     const deletedSlider = await Banner.findByIdAndDelete(req.params.id);
     if (!deletedSlider) {
         res.status(404);
@@ -100,8 +118,8 @@ const sliderController = {
     getBanners,
     getSliders,
     getBannerById,
-    createSliders: createBanners,
-    updateSlider,
-    deleteSlider,
+    createBanners,
+    updateBanner,
+    deleteBanner,
 };
 export default sliderController;
