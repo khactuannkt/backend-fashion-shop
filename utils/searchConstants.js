@@ -1,7 +1,7 @@
 const productQueryParams = {
     price: {
-        asc: { price: 'asc' },
-        desc: { price: 'desc' },
+        asc: { priceSale: 'asc' },
+        desc: { priceSale: 'desc' },
         default: {},
     },
     date: {

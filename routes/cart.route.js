@@ -1,6 +1,6 @@
 import express from 'express';
 import asyncHandler from 'express-async-handler';
-import { protect, auth } from '../middlewares/auth.middleware.js';
+import { protect, auth } from '../middleware/auth.middleware.js';
 import cartController from '../controllers/cart.controller.js';
 
 const cartRouter = express.Router();

@@ -1,6 +1,6 @@
 import express from 'express';
 import asyncHandler from 'express-async-handler';
-import { protect, auth } from '../middlewares/auth.middleware.js';
+import { protect, auth } from '../middleware/auth.middleware.js';
 import { multerUpload } from '../utils/multer.js';
 import bannerController from '../controllers/banner.controller.js';
 

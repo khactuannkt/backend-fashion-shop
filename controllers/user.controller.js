@@ -51,10 +51,10 @@ const login = async (req, res, next) => {
                 updatedAt: user.updatedAt,
             };
             const accessToken = generateAuthToken({ _id: user._id }, process.env.ACCESS_JWT_SECRET, {
-                expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN_MINUTE * 60 * 1000,
+                expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN_MINUTE * 60,
             });
             const refreshToken = generateAuthToken({ _id: user._id }, process.env.REFRESH_JWT_SECRET, {
-                expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN_MINUTE * 60 * 1000,
+                expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN_MINUTE * 60,
             });
             const newToken = await new Token({
                 user: user._id,
@@ -234,139 +234,194 @@ const cancelVerifyEmail = async (req, res, next) => {
     }
 };
 
-const forgotPassword = async (req, res) => {
-    const email = req.body.email || null;
-    const user = await User.findOne({ email: email, isVerified: true });
-    if (!user) {
-        res.status(400);
-        throw new Error('Email not found');
-    }
-    //reset password
-    const resetPasswordToken = user.getResetPasswordToken();
-    await user.save();
-    //send reset password email
-    const url = `${process.env.USER_PAGE_URL}reset?resetPasswordToken=${resetPasswordToken}`;
-    const html = htmlResetEmail({ link: url, email, urlLogo: image.logo });
-    //set up message options
-    const messageOptions = {
-        recipient: user.email,
-        subject: 'Reset Password',
-        html: html,
-    };
-    //send verify email
+const forgotPassword = async (req, res, next) => {
     try {
+        const { email } = req.body;
+        if (!email || email.toString().trim() === '') {
+            res.status(400);
+            throw new Error('Email is required');
+        }
+        const user = await User.findOne({ email, isVerified: true });
+
+        if (!user) {
+            res.status(400);
+            throw new Error('Email not found');
+        }
+
+        // Reset password
+        const resetPasswordToken = user.getResetPasswordToken();
+        await user.save();
+
+        // Send reset password email
+        const resetPasswordUrl = `${process.env.CLIENT_PAGE_URL}reset?resetPasswordToken=${resetPasswordToken}`;
+        const html = htmlResetEmail({ link: resetPasswordUrl, email, urlLogo: image.logo });
+
+        // Set up message options
+        const messageOptions = {
+            recipient: user.email,
+            subject: 'Reset Password',
+            html,
+        };
+
+        // Send reset password email
         await sendMail(messageOptions);
-        res.status(200);
-        res.json('Sending reset password mail successfully');
+        res.status(200).json({ success: true, message: 'Sending reset password email successfully' });
     } catch (error) {
         next(error);
     }
 };
 
 const resetPassword = async (req, res) => {
-    const resetPasswordToken = req.query.resetPasswordToken || null;
-    const email = req.body.email || null;
-    const { newPassword, confirmPassword } = req.body;
-    if (!newPassword) {
-        res.status(400);
-        throw new Error('Your new password is not valid');
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            const errorMessages = errors.array().reduce((acc, error) => {
+                const { param, msg } = error;
+                if (!acc[param]) {
+                    acc[param] = msg;
+                }
+                return acc;
+            }, {});
+            return res.status(400).json({ success: false, message: 'An error occurred', errors: errorMessages });
+        }
+        const resetPasswordToken = req.query.resetPasswordToken.toString().trim();
+
+        const { email, newPassword } = req.body;
+
+        const isEmailExisted = await User.findOne({ email: email, isVerified: true });
+        if (!isEmailExisted) {
+            res.status(400);
+            throw new Error('Email not found');
+        }
+        const hashedToken = crypto.createHash('sha256').update(resetPasswordToken).digest('hex');
+        const user = await User.findOne({
+            _id: isEmailExisted._id,
+            resetPasswordToken: hashedToken,
+            resetPasswordTokenExpiryTime: {
+                $gte: Date.now(),
+            },
+            isVerified: true,
+        });
+        if (!user) {
+            res.status(400);
+            throw new Error('Reset password token is not valid');
+        }
+        user.password = newPassword;
+        user.resetPasswordToken = null;
+        user.resetPasswordTokenExpiryTime = null;
+        await user.save();
+        res.status(200).json({ success: true, message: 'Your password has been reset' });
+    } catch (error) {
+        next(error);
     }
-    if (newPassword.localeCompare(confirmPassword) != 0) {
-        res.status(400);
-        throw new Error('The password and confirmation password do not match');
-    }
-    const isEmailExisted = await User.findOne({ email: email, isVerified: true });
-    if (!isEmailExisted) {
-        res.status(400);
-        throw new Error('Email not found');
-    }
-    const hashedToken = crypto.createHash('sha256').update(resetPasswordToken).digest('hex');
-    const user = await User.findOne({
-        _id: isEmailExisted._id,
-        resetPasswordToken: hashedToken,
-        resetPasswordTokenExpiryTime: {
-            $gte: Date.now(),
-        },
-        isVerified: true,
-    });
-    if (!user) {
-        res.status(400);
-        throw new Error('Reset password token is not valid');
-    }
-    user.password = newPassword;
-    user.resetPasswordToken = null;
-    user.resetPasswordTokenExpiryTime = null;
-    await user.save();
-    res.status(200);
-    res.json('Your password has been reset');
 };
 
 const cancelResetPassword = async (req, res) => {
-    const resetPasswordToken = req.query.resetPasswordToken || null;
-    const hashedToken = crypto.createHash('sha256').update(resetPasswordToken).digest('hex');
-    const user = await User.findOneAndUpdate(
-        {
-            resetPasswordToken: hashedToken,
-            resetPasswordTokenExpiryTime: {
-                $gte: Date.now() * process.env.RESET_PASSWORD_EXPIRY_TIME_IN_MINUTE * 60 * 1000,
+    try {
+        const resetPasswordToken = req.query.resetPasswordToken.toString().trim();
+        if (!resetPasswordToken || resetPasswordToken === '') {
+            res.status(400);
+            throw new Error('Reset password token is required');
+        }
+        const hashedToken = crypto.createHash('sha256').update(resetPasswordToken).digest('hex');
+        const user = await User.findOneAndUpdate(
+            {
+                resetPasswordToken: hashedToken,
+                resetPasswordTokenExpiryTime: {
+                    $gte: Date.now() * process.env.RESET_PASSWORD_EXPIRY_TIME_IN_MINUTE * 60 * 1000,
+                },
+                isVerified: true,
             },
-            isVerified: true,
-        },
-        {
-            resetPasswordToken: null,
-            resetPasswordTokenExpiryTime: null,
-        },
-    );
-    if (!user) {
-        res.status(400);
-        throw new Error('Reset password token is not found');
+            {
+                resetPasswordToken: null,
+                resetPasswordTokenExpiryTime: null,
+            },
+        );
+        if (!user) {
+            res.status(400);
+            throw new Error('Reset password token is not found');
+        }
+        res.status(200).json({ success: true, message: 'Canceling reset password succeed' });
+    } catch (error) {
+        next(error);
     }
-    res.status(200);
-    res.json('Canceling reset password succeed');
 };
 
 const getProfile = async (req, res) => {
-    const user = await User.findById(req.user._id).select({
-        password: 0,
-        isVerified: 0,
-        emailVerificationToken: 0,
-        resetPasswordToken: 0,
-        resetPasswordTokenExpiryTime: 0,
-    });
-    if (!user) {
-        res.status(404);
-        throw new Error('User not found');
+    try {
+        const user = await User.findById(req.user._id).select({
+            password: 0,
+            isVerified: 0,
+            emailVerificationToken: 0,
+            resetPasswordToken: 0,
+            resetPasswordTokenExpiryTime: 0,
+        });
+        if (!user) {
+            res.status(404);
+            throw new Error('User not found');
+        }
+        res.status(200).json({
+            success: true,
+            message: 'Successfully retrieved user profile',
+            data: {
+                user: {
+                    _id: verifiedUser._id,
+                    name: verifiedUser.name,
+                    email: verifiedUser.email,
+                    role: verifiedUser.role,
+                    phone: verifiedUser.phone,
+                    avatar: verifiedUser.avatar,
+                    gender: verifiedUser.gender,
+                    birthday: verifiedUser.birthday,
+                    address: verifiedUser.address,
+                    createdAt: verifiedUser.createdAt,
+                    updatedAt: verifiedUser.updatedAt,
+                },
+            },
+        });
+    } catch (error) {
+        next(error);
     }
-    res.json(user);
 };
 
 const updateProfile = async (req, res) => {
-    const user = await User.findById(req.user._id);
+    try {
+        const user = await User.findById(req.user._id);
 
-    if (user) {
-        user.name = req.body.name || user.name;
-        user.email = req.body.email || user.email;
-        user.phone = req.body.phone || user.phone;
-        user.address = req.body.address || user.address;
-        user.city = req.body.city || user.city;
-        user.country = req.body.country || user.country;
-        const updatedUser = await user.save();
-        res.json({
-            _id: updatedUser._id,
-            name: updatedUser.name,
-            email: updatedUser.email,
-            isAdmin: updatedUser.isAdmin,
-            role: updatedUser.role,
-            phone: updatedUser.phone,
-            address: updatedUser.address,
-            city: updatedUser.city,
-            country: updatedUser.country,
-            createdAt: updatedUser.createdAt,
-            updatedAt: updatedUser.updatedAt,
-        });
-    } else {
-        res.status(404);
-        throw new Error('User not found');
+        if (user) {
+            user.name = req.body.name || user.name;
+            // user.email = req.body.email || user.email;
+            user.phone = req.body.phone || user.phone;
+            user.gender = req.body.gender || user.gender;
+            user.avatar = req.body.avatar || user.avatar;
+            user.birthday = req.body.birthday || user.birthday;
+            user.address = req.body.address || user.address;
+            const updatedUser = await user.save();
+            res.status(200).json({
+                success: true,
+                message: '',
+                data: {
+                    user: {
+                        _id: updatedUser._id,
+                        name: updatedUser.name,
+                        email: updatedUser.email,
+                        role: updatedUser.role,
+                        phone: updatedUser.phone,
+                        avatar: updatedUser.avatar,
+                        gender: updatedUser.gender,
+                        birthday: updatedUser.birthday,
+                        address: updatedUser.address,
+                        createdAt: updatedUser.createdAt,
+                        updatedAt: updatedUser.updatedAt,
+                    },
+                },
+            });
+        } else {
+            res.status(404);
+            throw new Error('User not found');
+        }
+    } catch (error) {
+        next(error);
     }
 };
 

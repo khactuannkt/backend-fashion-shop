@@ -76,10 +76,73 @@ import { cloudinaryUpload, cloudinaryRemove } from '../utils/cloudinary.js';
     res.json({ products, page, pages: Math.ceil(count / pageSize) });
 }; */
 
-const getAllProducts = async (req, res) => {
-    const products = await Product.find({}).sort({ _id: -1 });
-    const productSlice = products.slice(0, 10);
-    res.json(productSlice);
+const getAllProducts = async (req, res, next) => {
+    try {
+        const products = await Product.find({}).sort({ _id: -1 });
+        res.status(200).json({ success: true, data: { products } });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const getProducts = async (req, res) => {
+    const pageSize = Number(req.query.pageSize) || 12; //EDIT HERE
+    const page = Number(req.query.pageNumber) || 1;
+    const dateOrderSortBy = validateConstants(productQueryParams, 'date', req.query.dateOrder);
+    const priceOrderSortBy = validateConstants(productQueryParams, 'price', req.query.priceOrder);
+    const bestSellerSortBy = validateConstants(productQueryParams, 'totalSales', req.query.bestSeller);
+    const productSortBy = { ...bestSellerSortBy, ...priceOrderSortBy, ...dateOrderSortBy };
+    /* let statusFilter;
+    if (!req.user || req.user.isAdmin == false) {
+        statusFilter = validateConstants(productQueryParams, 'status', 'default');
+    } else if (req.user.isAdmin) {
+        statusFilter = validateConstants(productQueryParams, 'status', req.query.status);
+    } */
+    console.log(productSortBy, 'sort');
+    const keyword = req.query.keyword
+        ? {
+              name: {
+                  $regex: req.query.keyword,
+                  $options: 'i',
+              },
+          }
+        : {}; // TODO: return cannot find product
+
+    //Check if category existed
+    const categoryId = req.query.category || null;
+    const category = await Category.findOne({ _id: categoryId });
+    const categoryFilter = category ? { category: category } : {};
+    /* if (!req.query.category) {
+        categoryName = 'All';
+    }
+    let categoryIds;
+    if (categoryName == 'All') {
+        //categoryIds = await Category.find({ ...statusFilter }).select({ _id: 1 });
+    } else {
+        //categoryIds = await Category.find({ name: categoryName, ...statusFilter }).select({ _id: 1 });
+        categoryIds = await Category.find({ name: categoryName }).select({ _id: 1 });
+    } */
+    //(categoryFilter);
+    const productFilter = {
+        ...keyword,
+        ...categoryFilter,
+        ...priceRangeFilter(parseInt(req.query.minPrice), parseInt(req.query.maxPrice)),
+        ...ratingFilter(parseInt(req.query.rating)),
+    };
+    const count = await Product.countDocuments(productFilter);
+    //Check if product match keyword
+    if (count == 0) {
+        res.status(204);
+        res.json({ message: 'No products found for this keyword' });
+    }
+    //else
+    const products = await Product.find(productFilter)
+        .limit(pageSize)
+        .skip(pageSize * (page - 1))
+        .sort(productSortBy)
+        .populate('category')
+        .populate('variants');
+    res.json({ products, page, pages: Math.ceil(count / pageSize), totalProducts: count });
 };
 
 const getAllProductsByAdmin = async (req, res) => {
@@ -340,66 +403,6 @@ const createProduct = async (req, res) => {
     await product.save();
     res.status(201);
     res.json({ message: 'Product is added' });
-};
-
-const getProducts = async (req, res) => {
-    const pageSize = Number(req.query.pageSize) || 12; //EDIT HERE
-    const page = Number(req.query.pageNumber) || 1;
-    const dateOrderSortBy = validateConstants(productQueryParams, 'date', req.query.dateOrder);
-    const priceOrderSortBy = validateConstants(productQueryParams, 'price', req.query.priceOrder);
-    const bestSellerSortBy = validateConstants(productQueryParams, 'totalSales', req.query.bestSeller);
-    const productSortBy = { ...bestSellerSortBy, ...priceOrderSortBy, ...dateOrderSortBy };
-    /* let statusFilter;
-    if (!req.user || req.user.isAdmin == false) {
-        statusFilter = validateConstants(productQueryParams, 'status', 'default');
-    } else if (req.user.isAdmin) {
-        statusFilter = validateConstants(productQueryParams, 'status', req.query.status);
-    } */
-    console.log(productSortBy, 'sort');
-    const keyword = req.query.keyword
-        ? {
-              name: {
-                  $regex: req.query.keyword,
-                  $options: 'i',
-              },
-          }
-        : {}; // TODO: return cannot find product
-
-    //Check if category existed
-    const categoryId = req.query.category || null;
-    const category = await Category.findOne({ _id: categoryId });
-    const categoryFilter = category ? { category: category } : {};
-    /* if (!req.query.category) {
-        categoryName = 'All';
-    }
-    let categoryIds;
-    if (categoryName == 'All') {
-        //categoryIds = await Category.find({ ...statusFilter }).select({ _id: 1 });
-    } else {
-        //categoryIds = await Category.find({ name: categoryName, ...statusFilter }).select({ _id: 1 });
-        categoryIds = await Category.find({ name: categoryName }).select({ _id: 1 });
-    } */
-    //(categoryFilter);
-    const productFilter = {
-        ...keyword,
-        ...categoryFilter,
-        ...priceRangeFilter(parseInt(req.query.minPrice), parseInt(req.query.maxPrice)),
-        ...ratingFilter(parseInt(req.query.rating)),
-    };
-    const count = await Product.countDocuments(productFilter);
-    //Check if product match keyword
-    if (count == 0) {
-        res.status(204);
-        res.json({ message: 'No products found for this keyword' });
-    }
-    //else
-    const products = await Product.find(productFilter)
-        .limit(pageSize)
-        .skip(pageSize * (page - 1))
-        .sort(productSortBy)
-        .populate('category')
-        .populate('variants');
-    res.json({ products, page, pages: Math.ceil(count / pageSize), totalProducts: count });
 };
 
 const getProductSearchResults = async (req, res) => {

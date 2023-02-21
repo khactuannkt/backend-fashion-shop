@@ -7,7 +7,7 @@ import swaggerUiExpress from 'swagger-ui-express';
 import connectDatabase from './config/db.config.js';
 import ImportData from './DataImport.js';
 import productRouter from './routes/product.route.js';
-import { errorHandler, notFound } from './middlewares/error.middleware.js';
+import { errorHandler, notFound } from './middleware/error.middleware.js';
 import userRouter from './routes/user.route.js';
 import orderRouter from './routes/order.route.js';
 import bannerRouter from './routes/banner.route.js';

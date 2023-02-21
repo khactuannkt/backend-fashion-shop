@@ -9,6 +9,7 @@ const categorySchema = new mongoose.Schema(
         image: {
             type: String,
             required: false,
+            default: null,
         },
         level: {
             type: Number,
@@ -18,7 +19,7 @@ const categorySchema = new mongoose.Schema(
         parent: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Category',
-            default: 0,
+            default: null,
         },
         children: [
             {
