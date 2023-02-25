@@ -5,7 +5,7 @@ import morgan from 'morgan';
 import YAML from 'yamljs';
 import swaggerUiExpress from 'swagger-ui-express';
 import connectDatabase from './config/db.config.js';
-import ImportData from './DataImport.js';
+import ImportData from './routes/DataImport.js';
 import productRouter from './routes/product.route.js';
 import { errorHandler, notFound } from './middleware/error.middleware.js';
 import userRouter from './routes/user.route.js';

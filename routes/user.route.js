@@ -7,14 +7,14 @@ import validate from '../middleware/validate.middleware.js';
 const userRouter = express.Router();
 
 userRouter.post('/login', validate.login, asyncHandler(userController.login));
-userRouter.get('/profile', protect, auth('user', 'staff', 'admin'), asyncHandler(userController.getProfile));
-userRouter.put('/profile', protect, auth('user', 'staff', 'admin'), asyncHandler(userController.updateProfile));
+userRouter.get('/profile', protect, auth('customer', 'staff', 'admin'), asyncHandler(userController.getProfile));
+userRouter.put('/profile', protect, auth('customer', 'staff', 'admin'), asyncHandler(userController.updateProfile));
 userRouter.patch('/auth/verify-email', asyncHandler(userController.verifyEmail));
 userRouter.post('/register', validate.register, asyncHandler(userController.register));
 userRouter.patch(
     '/auth/change-password',
     protect,
-    auth('user', 'staff', 'admin'),
+    auth('customer', 'staff', 'admin'),
     asyncHandler(userController.changePassword),
 );
 userRouter.patch('/auth/forgot-password', asyncHandler(userController.forgotPassword));

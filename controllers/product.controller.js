@@ -6,6 +6,9 @@ import Cart from '../models/cart.model.js';
 import Variant from '../models/variant.model.js';
 import { productQueryParams, validateConstants, priceRangeFilter, ratingFilter } from '../utils/searchConstants.js';
 import { cloudinaryUpload, cloudinaryRemove } from '../utils/cloudinary.js';
+import { check, validationResult } from 'express-validator';
+import slug from 'slug';
+import { ObjectId } from 'mongodb';
 
 /* const getProducts = async (req, res) => {
     const pageSize = 8;
@@ -98,7 +101,6 @@ const getProducts = async (req, res) => {
     } else if (req.user.isAdmin) {
         statusFilter = validateConstants(productQueryParams, 'status', req.query.status);
     } */
-    console.log(productSortBy, 'sort');
     const keyword = req.query.keyword
         ? {
               name: {
@@ -340,17 +342,28 @@ const updateProduct = async (req, res) => {
 };
 
 const createProduct = async (req, res) => {
-    const name = req.body.name || null;
-    let { description, category, image } = req.body;
-    let variants = JSON.parse(req.body.variants);
-    let imageUrl = '';
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const errorMessages = errors.array().reduce((acc, error) => {
+            const { param, msg } = error;
+            if (!acc[param]) {
+                acc[param] = msg;
+            }
+            return acc;
+        }, {});
+        return res.status(400).json({ success: false, message: 'An error occurred', errors: errorMessages });
+    }
+    let { name, description, category, brand, keywords, price = 0, priceSale = 0, quantity, variants } = req.body;
+
     const findProduct = Product.findOne({ name });
+    if (!ObjectId.isValid(category)) {
+        res.status(400);
+        throw new Error('ID category is not valid');
+    }
     const findCategory = Category.findById(category);
     const [existedProduct, existedCategory] = await Promise.all([findProduct, findCategory]);
-    /* if (price <= 0 || countInStock < 0 || price >= 10000 || countInStock >= 10000) {
-        res.status(400);
-        throw new Error('Price or Count in stock is not valid, please correct it and try again');
-    } */
+
     if (existedProduct) {
         res.status(400);
         throw new Error('Product name already exist');
@@ -359,50 +372,90 @@ const createProduct = async (req, res) => {
         res.status(400);
         throw new Error('Category is not found');
     }
-    if (!variants || variants.length == 0) {
-        res.status(400);
-        throw new Error('Product must have at least one variant');
+    //generate slug
+    let generatedSlug = slug(name);
+    const existSlug = await Product.findOne({ slug: generatedSlug });
+    if (existSlug) {
+        generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
     }
-    if ((!image || image.length == 0) && req.file) {
-        image = await cloudinaryUpload(req.file.path, 'FashionShop/products');
-        if (!image) {
-            res.status(500);
-            throw new Error('Error while uploading image');
-        }
-        imageUrl = image.secure_url;
-        fs.unlink(req.file.path, (error) => {
-            if (error) {
-                throw new Error(error);
+    // upload image to cloundinary
+    const images = req.body.images || [];
+    if (req.files && req.files.length > 0) {
+        const uploadListImage = req.files.map(async (image) => {
+            const uploadImage = await cloudinaryUpload(image.path, 'FashionShop/products');
+            if (!uploadImage) {
+                res.status(500);
+                throw new Error('Error while uploading image');
             }
+            fs.unlink(image.path, (error) => {
+                if (error) {
+                    throw new Error(error);
+                }
+            });
+            return uploadImage.secure_url;
         });
+        const imageList = await Promise.all(uploadListImage);
+        images.push(...imageList);
     }
+
     const product = new Product({
         name,
+        slug: generatedSlug,
         description,
         category,
-        image: imageUrl,
-        //variants: variantIds,
+        image: images,
+        brand,
+        keywords,
+        price,
+        priceSale,
+        quantity,
     });
-    if (!product) {
-        res.status(500);
-        throw new Error('Error while creating new proudct');
+    // const newProduct = await product.save();
+    if (variants && variants.length > 0) {
+        const productVariants = variants.map((variant) => {
+            if (!variant.attributes || variant.attributes.length === 0) {
+                res.status(400);
+                throw new Error('Attributes is required');
+            }
+            if (!variant.price || variant.price <= 0) {
+                res.status(400);
+                throw new Error('Price must be an integer and must be greater than 0');
+            }
+            if (!variant.priceSale || variant.priceSale <= 0) {
+                res.status(400);
+                throw new Error('Price sale must be an integer and must be greater than 0');
+            }
+            if (!variant.quantity || variant.quantity < 0) {
+                res.status(400);
+                throw new Error('The quantity must be an integer and must be greater than or equal to 0');
+            }
+            return new Variant({ product: product._id, ...variant });
+        });
+        const createdVariants = await Variant.insertMany(productVariants);
+        if (createdVariants.length === 0) {
+            res.status(400);
+            throw new Error('Invalid product data');
+        }
+        let minPriceSale = createdVariants[0].priceSale;
+        let minPrice = createdVariants[0].price;
+        let totalQuantity = 0;
+        const variantIds = createdVariants.map((variant) => {
+            totalQuantity += variant.quantity;
+            if (minPriceSale > variant.priceSale) {
+                minPriceSale = variant.priceSale;
+                minPrice = variant.price;
+            }
+            return variant._id;
+        });
+
+        product.variants = variantIds;
+        product.price = minPrice;
+        product.priceSale = minPriceSale;
+        product.quantity = totalQuantity;
     }
-    let totalVariantPrice = 0;
-    const productVariants = variants.map((productVariant) => new Variant({ product: product._id, ...productVariant }));
-    const createdVariants = await Variant.insertMany(productVariants);
-    const variantIds = createdVariants.map((variant) => {
-        totalVariantPrice += variant.price;
-        return variant._id;
-    });
-    if (variantIds.length == 0) {
-        res.status(400);
-        throw new Error('Invalid product data');
-    }
-    product.variants = variantIds;
-    product.price = totalVariantPrice / product.variants.length;
-    await product.save();
+    const newProduct = await (await product.save()).populate('variants');
     res.status(201);
-    res.json({ message: 'Product is added' });
+    res.json({ success: true, message: 'Add successful Product', data: { newProduct } });
 };
 
 const getProductSearchResults = async (req, res) => {

@@ -1,12 +1,12 @@
 import express from 'express';
-import User from './models/user.model.js';
-import Product from './models/product.model.js';
-import Banner from './models/banner.model.js';
-import users from './data/users.js';
-import products from './data/Products.js';
+import User from '../models/user.model.js';
+import Product from '../models/product.model.js';
+import Banner from '../models/banner.model.js';
+import users from '../data/users.js';
+import products from '../data/Products.js';
 import asyncHandler from 'express-async-handler';
-import { banner } from './data/banner.js';
-import Cart from './models/cart.model.js';
+import { banner } from '../data/banner.js';
+import Cart from '../models/cart.model.js';
 const ImportData = express.Router();
 
 ImportData.post(
