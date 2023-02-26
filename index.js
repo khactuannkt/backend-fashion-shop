@@ -14,10 +14,13 @@ import bannerRouter from './routes/banner.route.js';
 import cartRouter from './routes/cart.route.js';
 import categoryRouter from './routes/category.route.js';
 import testRouter from './routes/test.route.js';
+import { fileURLToPath } from 'url';
+import path from 'path';
 
 dotenv.config();
 connectDatabase();
 const app = express();
+app.use(express.static('public'));
 app.use(express.json());
 app.use(cors());
 app.use(morgan('dev'));
