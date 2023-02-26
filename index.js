@@ -23,7 +23,11 @@ app.use(cors());
 app.use(morgan('dev'));
 
 // swagger;
-const swaggerDocument = YAML.load('./config/swagger.config.yaml');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const swaggerPath = path.join(__dirname, 'config', 'swagger.config.yaml');
+const swaggerDocument = YAML.load(swaggerPath);
+// const swaggerDocument = YAML.load('./config/swagger.config.yaml');
 app.use(
     '/fashionshopswagger',
     swaggerUiExpress.serve,
@@ -33,6 +37,10 @@ app.use(
         },
     }),
 );
+app.use('/fashionshopswagger', express.static(path.join(__dirname, 'node_modules/swagger-ui-dist')));
+app.use('/fashionshopswagger', express.static(path.join(__dirname, 'node_modules/swagger-ui-dist/css')));
+app.use('/fashionshopswagger', express.static(path.join(__dirname, 'node_modules/swagger-ui-dist/js')));
+
 // API
 app.use('/api/cart', cartRouter);
 app.use('/api/banner', bannerRouter);
