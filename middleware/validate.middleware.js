@@ -1,5 +1,14 @@
-import { check, validationResult } from 'express-validator';
+import { body, check, validationResult } from 'express-validator';
+import { ObjectId } from 'mongodb';
 
+function isUrl(str) {
+    try {
+        const parsedUrl = new URL(str);
+        return parsedUrl.href === str;
+    } catch (err) {
+        return false;
+    }
+}
 const validate = {
     //====================Validate User==================
     register: [
@@ -110,15 +119,46 @@ const validate = {
             .isInt({ min: 0 })
             .withMessage('The quantity must be an integer and must be greater than or equal to 0'),
     ],
+    //====================Validate Cart==================
+    updateCartItem: [
+        check('variantId').custom((variantId) => {
+            if (!ObjectId.isValid(variantId)) {
+                throw new Error('Variant ID is not valid');
+            }
+            return true;
+        }),
+        // .trim().not().isEmpty().withMessage('variantId is required'),
+        check('quantity')
+            .trim()
+            .not()
+            .isEmpty()
+            .withMessage('Quantity is required')
+            .isInt({ min: 0 })
+            .withMessage('The quantity must be an integer and must be greater than or equal to 0'),
+    ],
+    addProductToCart: [
+        check('variantId').custom((variantId) => {
+            if (!ObjectId.isValid(variantId)) {
+                throw new Error('Variant ID is not valid');
+            }
+            return true;
+        }),
+        // .trim().not().isEmpty().withMessage('variantId is required'),
+        check('quantity')
+            .trim()
+            .not()
+            .isEmpty()
+            .withMessage('Quantity is required')
+            .isInt({ min: 0 })
+            .withMessage('The quantity must be an integer and must be greater than or equal to 0'),
+    ],
     //====================Validate Banner==================
 
     createBanner: [
         check('title').trim().not().isEmpty().withMessage('Title is required'),
-        check('imageUrl').custom((imageUrl, { req }) => {
-            if (!req.file) {
-                if (!imageUrl || imageUrl.trim() == '') {
-                    throw new Error('Image is required');
-                }
+        check('imageUrl').custom((imageUrl) => {
+            if (!isUrl(imageUrl)) {
+                throw new Error('URL image must be an url');
             }
             return true;
         }),
@@ -132,7 +172,6 @@ const validate = {
             return true;
         }),
         check('index')
-            .trim()
             .not()
             .isEmpty()
             .withMessage('Index is required')

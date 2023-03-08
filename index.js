@@ -5,17 +5,11 @@ import morgan from 'morgan';
 import YAML from 'yamljs';
 import swaggerUiExpress from 'swagger-ui-express';
 import connectDatabase from './config/db.config.js';
-import ImportData from './routes/DataImport.js';
-import productRouter from './routes/product.route.js';
 import { errorHandler, notFound } from './middleware/error.middleware.js';
-import userRouter from './routes/user.route.js';
-import orderRouter from './routes/order.route.js';
-import bannerRouter from './routes/banner.route.js';
-import cartRouter from './routes/cart.route.js';
-import categoryRouter from './routes/category.route.js';
-import testRouter from './routes/test.route.js';
+
 import { fileURLToPath } from 'url';
 import path from 'path';
+import routes from './routes/index.js';
 
 dotenv.config();
 connectDatabase();
@@ -25,12 +19,14 @@ app.use(express.json());
 app.use(cors());
 app.use(morgan('dev'));
 
+//handle route for api v1.0
+routes(app);
+
 // swagger;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const swaggerPath = path.join(__dirname, 'config', 'swagger.config.yaml');
 const swaggerDocument = YAML.load(swaggerPath);
-// const swaggerDocument = YAML.load('./config/swagger.config.yaml');
 app.use(
     '/fashionshopswagger',
     swaggerUiExpress.serve,
@@ -43,19 +39,6 @@ app.use(
 app.use('/fashionshopswagger', express.static(path.join(__dirname, 'node_modules/swagger-ui-dist')));
 app.use('/fashionshopswagger', express.static(path.join(__dirname, 'node_modules/swagger-ui-dist/css')));
 app.use('/fashionshopswagger', express.static(path.join(__dirname, 'node_modules/swagger-ui-dist/js')));
-
-// API
-app.use('/api/cart', cartRouter);
-app.use('/api/banner', bannerRouter);
-app.use('/api/import', ImportData);
-app.use('/api/product', productRouter);
-app.use('/api/user', userRouter);
-app.use('/api/order', orderRouter);
-app.use('/api/categories', categoryRouter);
-app.use('/api/test', testRouter);
-app.get('/api/config/paypal', (req, res) => {
-    res.send(process.env.PAYPAL_CLIENT_ID);
-});
 
 // ERROR HANDLER
 app.use(notFound);

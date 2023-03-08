@@ -16,21 +16,20 @@ bannerRouter.post(
     validate.createBanner,
     protect,
     auth('staff', 'admin'),
-    multerUpload.single('banner'),
-    asyncHandler(bannerController.createBanners),
+    multerUpload.single('bannerImage'),
+    asyncHandler(bannerController.createBanner),
 );
 bannerRouter.put(
     '/:id',
     validate.updateBanner,
     protect,
     auth('staff', 'admin'),
-    multerUpload.single('banner'),
+    multerUpload.single('bannerImage'),
     asyncHandler(bannerController.updateBanner),
 );
-bannerRouter.patch('/:id/increaseIndex', protect, auth('staff', 'admin'), asyncHandler(bannerController.increaseIndex));
-
-bannerRouter.patch('/:id/decreaseIndex', protect, auth('staff', 'admin'), asyncHandler(bannerController.decreaseIndex));
-
 bannerRouter.delete('/:id', protect, auth('admin'), asyncHandler(bannerController.deleteBanner));
+// bannerRouter.patch('/:id/increaseIndex', protect, auth('staff', 'admin'), asyncHandler(bannerController.increaseIndex));
+
+// bannerRouter.patch('/:id/decreaseIndex', protect, auth('staff', 'admin'), asyncHandler(bannerController.decreaseIndex));
 
 export default bannerRouter;

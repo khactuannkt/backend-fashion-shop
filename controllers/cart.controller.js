@@ -1,5 +1,6 @@
 import Cart from '../models/cart.model.js';
 import Variant from '../models/variant.model.js';
+import { validationResult } from 'express-validator';
 
 const getCart = async (req, res) => {
     const cart = await Cart.findOne({ user: req.user._id }).populate({
@@ -10,8 +11,7 @@ const getCart = async (req, res) => {
         res.status(404);
         throw new Error('Cart not found');
     }
-    res.status(200);
-    res.json(cart.cartItems);
+    res.status(200).json({ success: true, message: '', data: { cartItems: [...cart.cartItems] } });
 };
 
 /* const addToCart = async (req, res) => {
@@ -107,7 +107,16 @@ const getCart = async (req, res) => {
 // };
 
 const addToCart = async (req, res) => {
-    const { variantId, quantity } = req.body;
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, message: 'An error occurred', ...errors });
+    }
+    const { variantId } = req.body;
+    const quantity = parseInt(req.body.quantity);
+    if (!quantity) {
+        res.status(404);
+        throw new Error('Quantity is not valid');
+    }
     const findCart = Cart.findOne({ user: req.user._id });
     const findVariant = Variant.findById(variantId);
     const [cart, variant] = await Promise.all([findCart, findVariant]);
@@ -145,28 +154,26 @@ const addToCart = async (req, res) => {
         const cartItem = {
             variant: variant._id,
             quantity: quantity,
+            attributes: [...variant.attributes],
         };
         cart.cartItems.push(cartItem);
     }
 
-    // else {
-    //     if (quantity > variant.quantity) {
-    //         res.status(400);
-    //         throw new Error('You have exceeded the maximum quantity available for this item');
-    //     }
-    //     const cartItem = {
-    //         variant: variant._id,
-    //         quantity: quantity,
-    //     };
-    //     cart.cartItems.push(cartItem);
-    // }
     await cart.save();
-    res.status(200);
-    res.json({ message: 'Cart item is added' });
+    res.status(200).json({ success: true, message: 'Cart item is added', data: { cartItems: [...cart.cartItems] } });
 };
 
 const updateCartItem = async (req, res) => {
-    const { variantId, quantity } = req.body;
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, message: 'An error occurred', ...errors });
+    }
+    const { variantId } = req.body;
+    const quantity = parseInt(req.body.quantity);
+    if (!quantity) {
+        res.status(404);
+        throw new Error('Quantity is not valid');
+    }
     const findCart = Cart.findOne({ user: req.user._id });
     const findVariant = Variant.findById(variantId);
     const [cart, variant] = await Promise.all([findCart, findVariant]);
@@ -176,21 +183,21 @@ const updateCartItem = async (req, res) => {
     }
     if (!variant) {
         res.status(400);
-        throw new Error('Product variantation not found');
+        throw new Error('Product variation not found');
     }
     if (quantity > variant.quantity) {
         res.status(400);
         throw new Error('You have exceeded the maximum quantity available for this item');
     }
-    const addedItemIndex = cart.cartItems.findIndex((item) => item.variant.toString() == variantId.toString());
-    if (addedItemIndex == -1) {
+    const updatedItemIndex = cart.cartItems.findIndex((item) => item.variant.toString() == variantId.toString());
+    if (updatedItemIndex == -1) {
         res.status(400);
         throw new Error('Cart item is not in cart');
     }
-    cart.cartItems[addedItemIndex].quantity = quantity;
+    cart.cartItems[updatedItemIndex].quantity = quantity;
     let message = '';
-    if (cart.cartItems[addedItemIndex].quantity <= 0) {
-        cart.cartItems.splice(addedItemIndex, 1);
+    if (cart.cartItems[updatedItemIndex].quantity <= 0) {
+        cart.cartItems.splice(updatedItemIndex, 1);
         message = 'Cart item is removed';
     } else {
         await cart.save();
@@ -198,8 +205,7 @@ const updateCartItem = async (req, res) => {
         message = 'Cart item is updated';
     }
     await cart.save();
-    res.status(200);
-    res.json({ message });
+    res.status(200).json({ success: true, message });
 };
 
 const removeCartItems = async (req, res) => {
@@ -208,11 +214,9 @@ const removeCartItems = async (req, res) => {
         res.status(404);
         throw new Error('Cart not found');
     }
-    //productIds: [productId1, productId2, ...]
     const variantIds = req.body.variantIds;
     await Cart.updateMany({ _id: cart._id }, { $pull: { cartItems: { variant: { $in: variantIds } } } });
-    res.status(200);
-    res.json({ message: 'Cart items are removed' });
+    res.status(200).json({ success: true, message: 'Cart items are removed' });
 };
 
 const cartController = { getCart, addToCart, updateCartItem, removeCartItems };
