@@ -1,6 +1,5 @@
 import * as fs from 'fs';
-import Banner from '../models/banner.model.js';
-import DiscountCode from '../models/discountCode.model';
+import DiscountCode from '../models/discountCode.model.js';
 import { cloudinaryUpload, cloudinaryRemove } from '../utils/cloudinary.js';
 import { validationResult } from 'express-validator';
 import { ObjectId } from 'mongodb';
