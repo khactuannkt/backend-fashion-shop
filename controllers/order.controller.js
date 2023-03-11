@@ -193,10 +193,8 @@ const getOrderShippingAddress = async (req, res) => {
     }
 };
 
-const placeOrder = async (req, res, next) => {
-    const { orderItems, shippingAddress, paymentMethod, taxPrice, shippingPrice, totalPrice, contactInformation } =
-        req.body;
-    const orderItemIds = orderItems.map((orderItem) => orderItem.variant);
+const createOrder = async (req, res, next) => {
+    const { orderItems, shippingAddress, paymentMethod, taxPrice, shippingPrice, totalPrice } = req.body;
     if (orderItems && orderItems.length === 0) {
         res.status(400);
         throw new Error('No order items');
@@ -223,7 +221,7 @@ const placeOrder = async (req, res, next) => {
                 taxPrice,
                 shippingPrice,
                 totalPrice,
-                contactInformation,
+
                 status: 'Placed',
             });
             let dataFilledrOrderItems = [];
@@ -417,16 +415,6 @@ const cancelOrder = async (req, res, next) => {
     }
 };
 
-const deleteOrderById = async (req, res) => {
-    const deletedOrder = await Order.findByIdAndDelete(req.params.id);
-    if (!deletedOrder) {
-        res.status(400);
-        throw new Error('Order not found');
-    }
-    res.status(200);
-    res.json('Order had been removed');
-};
-
 const reviewProductByOrderItemId = async (req, res) => {
     const { rating, comment } = req.body;
     const orderId = req.params.id || null;
@@ -483,7 +471,7 @@ Array.prototype.findLastIndex = function (callbackFn) {
 };
 
 const orderController = {
-    placeOrder,
+    createOrder,
     getOrderById,
     getOrdersByUserId,
     getOrders,

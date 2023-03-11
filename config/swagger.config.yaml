@@ -7,7 +7,7 @@ info:
         email: ktuan439@gmail.com
     version: 1.0.0
 servers:
-    # - url: http://localhost:5000/api/v1
+    - url: http://localhost:5000/api/v1
     - url: https://api.fashionshop.nkt2001.tech/api/v1
 externalDocs:
     description: Find out more about Swagger

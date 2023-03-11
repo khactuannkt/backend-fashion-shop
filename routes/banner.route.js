@@ -9,7 +9,13 @@ const bannerRouter = express.Router();
 
 bannerRouter.get('/', asyncHandler(bannerController.getBanners));
 
-bannerRouter.get('/:id', protect, auth('staff', 'admin'), asyncHandler(bannerController.getBannerById));
+bannerRouter.get(
+    '/:id',
+    validate.getBannerById,
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(bannerController.getBannerById),
+);
 
 bannerRouter.post(
     '/',
@@ -27,7 +33,7 @@ bannerRouter.put(
     multerUpload.single('bannerImage'),
     asyncHandler(bannerController.updateBanner),
 );
-bannerRouter.delete('/:id', protect, auth('admin'), asyncHandler(bannerController.deleteBanner));
+bannerRouter.delete('/:id', protect, auth('staff', 'admin'), asyncHandler(bannerController.deleteBanner));
 // bannerRouter.patch('/:id/increaseIndex', protect, auth('staff', 'admin'), asyncHandler(bannerController.increaseIndex));
 
 // bannerRouter.patch('/:id/decreaseIndex', protect, auth('staff', 'admin'), asyncHandler(bannerController.decreaseIndex));

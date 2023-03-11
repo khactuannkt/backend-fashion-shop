@@ -209,12 +209,17 @@ const updateCartItem = async (req, res) => {
 };
 
 const removeCartItems = async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, message: 'An error occurred', ...errors });
+    }
+    const variantIds = req.body.variantIds;
     const cart = await Cart.findOne({ user: req.user._id });
     if (!cart) {
         res.status(404);
         throw new Error('Cart not found');
     }
-    const variantIds = req.body.variantIds;
+
     await Cart.updateMany({ _id: cart._id }, { $pull: { cartItems: { variant: { $in: variantIds } } } });
     res.status(200).json({ success: true, message: 'Cart items are removed' });
 };

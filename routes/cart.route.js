@@ -9,12 +9,18 @@ const cartRouter = express.Router();
 cartRouter.get('/', protect, auth('customer'), asyncHandler(cartController.getCart));
 cartRouter.post('/add', validate.addProductToCart, protect, auth('customer'), asyncHandler(cartController.addToCart));
 cartRouter.patch(
+    '/remove',
+    validate.removeCartItems,
+    protect,
+    auth('customer'),
+    asyncHandler(cartController.removeCartItems),
+);
+cartRouter.patch(
     '/update',
     validate.updateCartItem,
     protect,
     auth('customer'),
     asyncHandler(cartController.updateCartItem),
 );
-cartRouter.patch('/remove', protect, auth('customer'), asyncHandler(cartController.removeCartItems));
 
 export default cartRouter;

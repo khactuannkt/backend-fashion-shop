@@ -79,18 +79,15 @@ import { ObjectId } from 'mongodb';
     res.json({ products, page, pages: Math.ceil(count / pageSize) });
 }; */
 
-const getAllProducts = async (req, res, next) => {
-    try {
-        const products = await Product.find({}).sort({ _id: -1 });
-        res.status(200).json({ success: true, data: { products } });
-    } catch (error) {
-        next(error);
-    }
-};
-
 const getProducts = async (req, res) => {
-    const pageSize = Number(req.query.pageSize) || 12; //EDIT HERE
+    // const limit = Number(req.query.limit) || 12;
+    // const rating = Number(req.query.rating) || 0;
+    // const maxPrice = Number(req.query.maxPrice) || 0;
+    // const minPrice = Number(req.query.minPrice) || 0;
+    // const Sort = validateConstants(productQueryParams, 'sort', req.query.sortBy);
     const page = Number(req.query.pageNumber) || 1;
+
+    const pageSize = Number(req.query.pageSize) || 12; //EDIT HERE
     const dateOrderSortBy = validateConstants(productQueryParams, 'date', req.query.dateOrder);
     const priceOrderSortBy = validateConstants(productQueryParams, 'price', req.query.priceOrder);
     const bestSellerSortBy = validateConstants(productQueryParams, 'totalSales', req.query.bestSeller);
@@ -479,7 +476,6 @@ const getProductSearchResults = async (req, res) => {
 const productController = {
     getProductById,
     getProducts,
-    getAllProducts,
     getAllProductsByAdmin,
     getProductSearchResults,
     reviewProduct,

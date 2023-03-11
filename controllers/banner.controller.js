@@ -11,12 +11,11 @@ const getBanners = async (req, res) => {
 };
 
 const getBannerById = async (req, res) => {
-    const bannerId = req.params.id || null;
-    if (!ObjectId.isValid(bannerId)) {
-        res.status(400);
-        throw new Error('ID is not valid');
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, message: 'An error occurred', ...errors });
     }
-    const banner = await Banner.findOne({ _id: bannerId });
+    const banner = await Banner.findOne({ _id: req.params.id });
     if (!banner) {
         res.status(404);
         throw new Error('Banner not found');
@@ -32,9 +31,8 @@ const createBanner = async (req, res) => {
     const { title, index, imageUrl, linkTo, role } = req.body;
 
     let image = '';
-
     if (req.file) {
-        const uploadImage = await cloudinaryUpload(req.file.path, 'FashtionShop/banners');
+        const uploadImage = await cloudinaryUpload(req.file.path, 'FashionShop/banners');
         if (!uploadImage) {
             throw new Error('Some banners were not uploaded due to an unknown error');
         }
@@ -46,7 +44,7 @@ const createBanner = async (req, res) => {
             }
         });
     } else if (imageUrl && imageUrl.trim() !== '') {
-        const uploadImage = await cloudinaryUpload(imageUrl, 'FashtionShop/banners');
+        const uploadImage = await cloudinaryUpload(imageUrl, 'FashionShop/banners');
         if (!uploadImage) {
             throw new Error('Some banners were not uploaded due to an unknown error');
         }
@@ -58,7 +56,7 @@ const createBanner = async (req, res) => {
 
     const banner = new Banner({
         title,
-        index,
+        index: Number(index),
         imageUrl: image,
         linkTo,
         role,
@@ -68,67 +66,67 @@ const createBanner = async (req, res) => {
 };
 
 const updateBanner = async (req, res) => {
-    const errors = validationResult(req.body);
+    const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        const errorMessages = errors.array().reduce((acc, error) => {
-            const { param, msg } = error;
-            if (!acc[param]) {
-                acc[param] = msg;
-            }
-            return acc;
-        }, {});
-        return res.status(400).json({ success: false, message: 'An error occurred', errors: errorMessages });
+        return res.status(400).json({ success: false, message: 'An error occurred', ...errors });
     }
-    // Check id
-    const bannerId = req.params.id || null;
-    if (!ObjectId.isValid(bannerId)) {
-        res.status(400);
-        throw new Error('ID is not valid');
-    }
-    const banner = await Banner.findById(bannerId);
+
+    const banner = await Banner.findById(req.params.id);
     if (!banner) {
         return res.status(404).json({ success: true, message: 'Banner not found' });
     }
 
     const { title, imageUrl, linkTo } = req.body;
-    let image = imageUrl || '';
-    if (image.trim() == '') {
-        if (req.file) {
-            const uploadImage = await cloudinaryUpload(req.file.path, 'FashtionShop/banners');
+    let image = '';
+    if (req.file) {
+        const uploadImage = await cloudinaryUpload(req.file.path, 'FashionShop/banners');
+        if (!uploadImage) {
+            throw new Error('Some banners were not uploaded due to an unknown error');
+        }
+        image = uploadImage.secure_url;
+        fs.unlink(req.file.path, (error) => {
+            if (error) {
+                res.status(500);
+                throw new Error(error);
+            }
+        });
+    } else if (imageUrl && imageUrl.trim() !== '') {
+        if (banner.imageUrl !== imageUrl) {
+            const uploadImage = await cloudinaryUpload(imageUrl, 'FashionShop/banners');
             if (!uploadImage) {
                 throw new Error('Some banners were not uploaded due to an unknown error');
             }
             image = uploadImage.secure_url;
-            fs.unlink(req.file.path, (error) => {
-                if (error) {
-                    res.status(500);
-                    throw new Error(error);
-                }
-            });
-        } else {
-            res.status(400);
-            throw new Error('Banner image is required');
-        }
+        } else image = banner.imageUrl;
+    } else {
+        res.status(400);
+        throw new Error('Banner image is required');
+    }
+    if (image !== banner.imageUrl) {
+        const publicId = banner.imageUrl.substring(url.lastIndexOf('/') + 1, url.lastIndexOf('.'));
+        await cloudinaryRemove('FashionShop/banners/' + publicId);
     }
 
-    const publicId = banner.url.split('.').pop();
-    await cloudinaryRemove(publicId);
-
-    banner.title = title;
-    banner.imageUrl = image;
-    banner.linkTo = linkTo;
+    banner.title = title || banner.title;
+    banner.imageUrl = image || banner.imageUrl;
+    banner.linkTo = linkTo || banner.linkTo;
     const updateBanner = await banner.save();
     res.status(200).json({ success: true, message: '', data: { updateBanner } });
 };
 
 const deleteBanner = async (req, res) => {
+    const bannerId = req.params.id || null;
+    if (!ObjectId.isValid(bannerId)) {
+        res.status(400);
+        throw new Error('ID is not valid');
+    }
     const deletedBanner = await Banner.findByIdAndDelete(req.params.id);
     if (!deletedBanner) {
         res.status(404);
         throw new Error('Banner not found');
     }
-    const publicId = deletedBanner.url.split('.').pop();
-    await cloudinaryRemove(publicId);
+    const publicId = deletedBanner.imageUrl.substring(url.lastIndexOf('/') + 1, url.lastIndexOf('.'));
+    await cloudinaryRemove('FashionShop/banners/' + publicId);
     res.status(200).json({ success: true, message: 'Banner is deleted' });
 };
 

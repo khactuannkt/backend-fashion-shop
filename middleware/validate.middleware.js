@@ -10,6 +10,166 @@ function isUrl(str) {
     }
 }
 const validate = {
+    //====================Validate Banner==================
+    getBannerById: [
+        check('id').custom((id) => {
+            if (!ObjectId.isValid(id)) {
+                throw new Error('ID is not valid');
+            }
+            return true;
+        }),
+    ],
+    createBanner: [
+        check('title').trim().not().isEmpty().withMessage('Title is required'),
+        check('imageUrl').custom((imageUrl) => {
+            if (!isUrl(imageUrl)) {
+                throw new Error('URL image must be an url');
+            }
+            return true;
+        }),
+        check('role').custom((role) => {
+            if (!role || role.trim() == '') {
+                throw new Error('Role is required');
+            }
+            if (role !== 'slider' && role !== 'banner') {
+                throw new Error('Role must be "slider" or "banner"');
+            }
+            return true;
+        }),
+        check('index').custom((index) => {
+            if (!index || index.trim() === '') {
+                throw new Error('Index is required');
+            }
+            const _index = Number(index);
+            if (!_index || _index <= 0) {
+                throw new Error('Index must be an integer and must be greater than 0');
+            }
+            return true;
+        }),
+    ],
+    updateBanner: [
+        check('id').custom((id) => {
+            if (!ObjectId.isValid(id)) {
+                throw new Error('ID is not valid');
+            }
+            return true;
+        }),
+        check('title').trim().not().isEmpty().withMessage('Title is required'),
+        check('imageUrl').custom((imageUrl) => {
+            if (!isUrl(imageUrl)) {
+                throw new Error('URL image must be an url');
+            }
+            return true;
+        }),
+    ],
+
+    //====================Validate Cart==================
+    updateCartItem: [
+        check('variantId').custom((variantId) => {
+            if (!ObjectId.isValid(variantId)) {
+                throw new Error('Variant ID is not valid');
+            }
+            return true;
+        }),
+        // .trim().not().isEmpty().withMessage('variantId is required'),
+        check('quantity').custom((quantity) => {
+            if (!quantity || quantity.trim() === '') {
+                throw new Error('Quantity is required');
+            }
+            const _quantity = Number(quantity);
+            if (!_quantity || _quantity <= 0) {
+                throw new Error('The quantity must be an integer and must be greater than or equal to 0');
+            }
+            return true;
+        }),
+    ],
+    addProductToCart: [
+        check('variantId').custom((variantId) => {
+            if (!ObjectId.isValid(variantId)) {
+                throw new Error('Variant ID is not valid');
+            }
+            return true;
+        }),
+        check('quantity').custom((quantity) => {
+            if (!quantity || quantity.trim() === '') {
+                throw new Error('Quantity is required');
+            }
+            const _quantity = Number(quantity);
+            if (!_quantity || _quantity <= 0) {
+                throw new Error('The quantity must be an integer and must be greater than or equal to 0');
+            }
+            return true;
+        }),
+    ],
+    removeCartItems: [
+        check('variantIds').custom((variantIds) => {
+            if (!variantIds || variantIds.length <= 0) {
+                throw new Error('Variant ID is required');
+            }
+            variantIds.map((variant) => {
+                if (!ObjectId.isValid(variant)) {
+                    throw new Error('Variant ID: "' + variant + '" is not valid');
+                }
+            });
+            return true;
+        }),
+    ],
+
+    //====================Validate Category==================
+    createCategory: [
+        check('name').trim().not().isEmpty().withMessage('Name is required'),
+        check('level').custom((level) => {
+            if (!level || String(level).trim() === '') {
+                throw new Error('Level is required');
+            }
+            const _level = Number(level);
+            if (!_level || _level < 1) {
+                throw new Error('Level must be an integer and must be large or 1');
+            }
+            return true;
+        }),
+        check('image').custom((image) => {
+            if (!isUrl(image)) {
+                throw new Error('URL image must be an url');
+            }
+            return true;
+        }),
+    ],
+    updateCategory: [
+        check('id').custom((id) => {
+            if (!ObjectId.isValid(id)) {
+                throw new Error('Category ID is not valid');
+            }
+            return true;
+        }),
+        check('name').trim().not().isEmpty().withMessage('Name is required'),
+        check('image').custom((image) => {
+            if (!isUrl(image)) {
+                throw new Error('URL image must be an url');
+            }
+            return true;
+        }),
+        check('level').custom((level) => {
+            if (!level || String(level).trim() === '') {
+                throw new Error('Level is required');
+            }
+            const _level = Number(level);
+            if (!_level || _level < 1) {
+                throw new Error('Level must be an integer and must be large or 1');
+            }
+            return true;
+        }),
+        check('parent').custom((parent) => {
+            if (!ObjectId.isValid(parent)) {
+                throw new Error('Parent category ID is not valid');
+            }
+            return true;
+        }),
+    ],
+
+    //====================Validate Discount Code==================
+    createDiscountCode: [],
+
     //====================Validate User==================
     register: [
         check('name').trim().not().isEmpty().withMessage('Name is required'),
@@ -64,30 +224,6 @@ const validate = {
             .withMessage('Password must be at least 6 characters long and 255 characters shorter'),
         check('resetPasswordToken').not().isEmpty().withMessage('Reset password token is required'),
     ],
-    //====================Validate Category==================
-    createCategory: [
-        check('name').trim().not().isEmpty().withMessage('Name is required'),
-        check('level')
-            .trim()
-            .not()
-            .isEmpty()
-            .withMessage('Level is required')
-            .isInt({ min: 1 })
-            .withMessage('Level must be an integer and must be large or 1'),
-        // check('parent').trim().not().isEmpty().withMessage('Parent Category is required'),
-    ],
-    updateCategory: [
-        check('name').trim().not().isEmpty().withMessage('Name is required'),
-        check('image').trim().not().isEmpty().withMessage('Image is required'),
-        check('level')
-            .trim()
-            .not()
-            .isEmpty()
-            .withMessage('Level is required')
-            .isInt({ min: 1 })
-            .withMessage('Level must be an integer and must be large or 1'),
-        check('parent').trim().not().isEmpty().withMessage('Parent Category is required'),
-    ],
 
     //====================Validate Product==================
     //validate Product
@@ -118,76 +254,6 @@ const validate = {
             .withMessage('Quantity is required')
             .isInt({ min: 0 })
             .withMessage('The quantity must be an integer and must be greater than or equal to 0'),
-    ],
-    //====================Validate Cart==================
-    updateCartItem: [
-        check('variantId').custom((variantId) => {
-            if (!ObjectId.isValid(variantId)) {
-                throw new Error('Variant ID is not valid');
-            }
-            return true;
-        }),
-        // .trim().not().isEmpty().withMessage('variantId is required'),
-        check('quantity')
-            .trim()
-            .not()
-            .isEmpty()
-            .withMessage('Quantity is required')
-            .isInt({ min: 0 })
-            .withMessage('The quantity must be an integer and must be greater than or equal to 0'),
-    ],
-    addProductToCart: [
-        check('variantId').custom((variantId) => {
-            if (!ObjectId.isValid(variantId)) {
-                throw new Error('Variant ID is not valid');
-            }
-            return true;
-        }),
-        // .trim().not().isEmpty().withMessage('variantId is required'),
-        check('quantity')
-            .trim()
-            .not()
-            .isEmpty()
-            .withMessage('Quantity is required')
-            .isInt({ min: 0 })
-            .withMessage('The quantity must be an integer and must be greater than or equal to 0'),
-    ],
-    //====================Validate Banner==================
-
-    createBanner: [
-        check('title').trim().not().isEmpty().withMessage('Title is required'),
-        check('imageUrl').custom((imageUrl) => {
-            if (!isUrl(imageUrl)) {
-                throw new Error('URL image must be an url');
-            }
-            return true;
-        }),
-        check('role').custom((role) => {
-            if (!role || role.trim() == '') {
-                throw new Error('Role is required');
-            }
-            if (role !== 'slider' && role !== 'banner') {
-                throw new Error('Role must be "slider" or "banner"');
-            }
-            return true;
-        }),
-        check('index')
-            .not()
-            .isEmpty()
-            .withMessage('Index is required')
-            .isInt({ min: 1 })
-            .withMessage('Index must be an integer and must be greater than 0'),
-    ],
-    updateBanner: [
-        check('title').trim().not().isEmpty().withMessage('Title is required'),
-        check('imageUrl').custom((imageUrl, { req }) => {
-            if (!req.file) {
-                if (!imageUrl || imageUrl.trim() == '') {
-                    throw new Error('Image is required');
-                }
-            }
-            return true;
-        }),
     ],
 };
 export default validate;

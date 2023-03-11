@@ -6,8 +6,8 @@ import validate from '../middleware/validate.middleware.js';
 
 const categoryRouter = express.Router();
 
-categoryRouter.get('/', asyncHandler(categoryController.getCategories));
 categoryRouter.get('/get_category_tree', asyncHandler(categoryController.getCategoryTree));
+categoryRouter.get('/', asyncHandler(categoryController.getCategories));
 categoryRouter.post(
     '/',
     validate.createCategory,

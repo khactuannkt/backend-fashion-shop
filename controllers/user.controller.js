@@ -161,10 +161,10 @@ const verifyEmail = async (req, res, next) => {
         cartItems: [],
     });
     const accessToken = generateAuthToken({ _id: verifiedUser._id }, process.env.ACCESS_JWT_SECRET, {
-        expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN_MINUTE * 60 * 1000,
+        expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN_MINUTE * 60,
     });
     const refreshToken = generateAuthToken({ _id: verifiedUser._id }, process.env.ACCESS_JWT_SECRET, {
-        expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN_MINUTE * 60 * 1000,
+        expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN_MINUTE * 60,
     });
     const newToken = await new Token({
         user: verifiedUser._id,
@@ -319,17 +319,17 @@ const getProfile = async (req, res) => {
         message: 'Successfully retrieved user profile',
         data: {
             user: {
-                _id: verifiedUser._id,
-                name: verifiedUser.name,
-                email: verifiedUser.email,
-                role: verifiedUser.role,
-                phone: verifiedUser.phone,
-                avatar: verifiedUser.avatar,
-                gender: verifiedUser.gender,
-                birthday: verifiedUser.birthday,
-                address: verifiedUser.address,
-                createdAt: verifiedUser.createdAt,
-                updatedAt: verifiedUser.updatedAt,
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                phone: user.phone,
+                avatar: user.avatar,
+                gender: user.gender,
+                birthday: user.birthday,
+                address: user.address,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt,
             },
         },
     });
