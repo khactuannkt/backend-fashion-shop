@@ -400,7 +400,7 @@ const createProduct = async (req, res) => {
         slug: generatedSlug,
         description,
         category,
-        image: images,
+        images,
         brand,
         keywords,
         price,

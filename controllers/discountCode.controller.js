@@ -3,6 +3,7 @@ import DiscountCode from '../models/discountCode.model.js';
 import { cloudinaryUpload, cloudinaryRemove } from '../utils/cloudinary.js';
 import { validationResult } from 'express-validator';
 import { ObjectId } from 'mongodb';
+import User from '../models/user.model.js';
 
 const getDiscountCode = async (req, res) => {
     const discountCode = await DiscountCode.find({ disabled: false }).sort({ _id: -1 });
@@ -75,7 +76,7 @@ const updateDiscountCode = async (req, res) => {
         return res.status(404).json({ success: true, message: 'Discount code not found' });
     }
     const discountCodeExists = await DiscountCode.findOne({ code: code });
-    if (discountCodeExists) {
+    if (discountCodeExists && discountCodeExists._id.toString() !== currentDiscountCode._id.toString()) {
         res.status(409);
         throw new Error('This Discount code already exists');
     }
@@ -91,11 +92,17 @@ const updateDiscountCode = async (req, res) => {
     currentDiscountCode.applicableProducts = applicableProducts || currentDiscountCode.applicableProducts;
 
     const updateDiscountCode = await currentDiscountCode.save();
-    return res.status(201).json({ success: true, message: 'DiscountCode are added', data: { updateDiscountCode } });
+    return res.status(200).json({ success: true, message: 'DiscountCode are added', data: { updateDiscountCode } });
 };
 
 const deleteDiscountCode = async (req, res) => {
-    const deletedDiscountCode = await DiscountCode.findByIdAndDelete(req.params.id);
+    const discountCodeId = req.params.id || null;
+    if (!ObjectId.isValid(discountCodeId)) {
+        res.status(400);
+        throw new Error('ID is not valid');
+    }
+    await User.updateMany({ $pull: { discountCode: discountCodeId } });
+    const deletedDiscountCode = await DiscountCode.findByIdAndDelete(discountCodeId);
     if (!deletedDiscountCode) {
         res.status(404);
         throw new Error('Discount not found');

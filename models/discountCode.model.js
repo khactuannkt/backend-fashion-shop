@@ -5,6 +5,7 @@ const discountCodeSchema = new mongoose.Schema(
         code: {
             type: String,
             required: true,
+            unique: true,
         },
         discountType: {
             type: String,

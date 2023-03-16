@@ -21,6 +21,20 @@ const getCategoryTree = async (req, res, next) => {
         throw new Error('Category not Found');
     }
 };
+const getCategoryById = async (req, res, next) => {
+    const categoryId = req.params.id || null;
+    if (!ObjectId.isValid(categoryId)) {
+        res.status(400);
+        throw new Error('ID is not valid');
+    }
+    const category = await Category.findById(categoryId).populate('children', 'parent');
+    if (category) {
+        return res.json({ success: true, message: 'Get successful category detail', data: { category: category } });
+    } else {
+        res.status(404);
+        throw new Error('Category not Found');
+    }
+};
 const createCategory = async (req, res, next) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
@@ -233,6 +247,7 @@ const categoryController = {
     createCategory,
     getCategories,
     getCategoryTree,
+    getCategoryById,
     updateCategory,
     deleteCategory,
 };

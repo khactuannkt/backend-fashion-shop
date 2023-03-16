@@ -24,6 +24,7 @@ discountCodeRouter.post(
 );
 discountCodeRouter.put(
     '/:id',
+    validate.updateDiscountCode,
     protect,
     auth('staff', 'admin'),
     asyncHandler(discountCodeController.updateDiscountCode),

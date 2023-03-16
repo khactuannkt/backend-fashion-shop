@@ -1,6 +1,5 @@
 import { body, check, validationResult } from 'express-validator';
 import { ObjectId } from 'mongodb';
-
 function isUrl(str) {
     try {
         const parsedUrl = new URL(str);
@@ -168,7 +167,148 @@ const validate = {
     ],
 
     //====================Validate Discount Code==================
-    createDiscountCode: [],
+    createDiscountCode: [
+        check('code').trim().not().isEmpty().withMessage('Code is required'),
+        check('discountType').custom((discountType) => {
+            if (!discountType || discountType.trim() == '') {
+                throw new Error('Discount type is required');
+            }
+            if (discountType !== 'percent' && discountType !== 'money') {
+                throw new Error('Discount type must be "percent" or "money"');
+            }
+            return true;
+        }),
+        check('discount').custom((discount) => {
+            if (!discount || String(discount).trim() === '') {
+                throw new Error('Discount is required');
+            }
+            const _discount = Number(discount);
+            if (!_discount || _discount < 0) {
+                throw new Error('Discount must be an integer and must be greater than or equal to 0');
+            }
+            return true;
+        }),
+        check('startDate')
+            .not()
+            .isEmpty()
+            .withMessage('Start date is required')
+            .isDate()
+            .withMessage('Start date is valid'),
+
+        check('endDate')
+            .not()
+            .isEmpty()
+            .withMessage('End date is required')
+            .isDate()
+            .withMessage('End date is valid')
+            .custom((endDate, { req }) => {
+                if (new Date(endDate) < new Date(req.body.startDate) || new Date(endDate) <= new Date()) {
+                    throw new Error(
+                        'The end date must be greater than or equal to the start date and must be greater than or equal to now',
+                    );
+                }
+                return true;
+            }),
+        check('isUsageLimit')
+            .trim()
+            .not()
+            .isEmpty()
+            .withMessage('isUsageLimit is required')
+            .isBoolean()
+            .withMessage('isUsageLimit must be a boolean'),
+        check('usageLimit').custom((usageLimit, { req }) => {
+            if (new Boolean(req.body.isUsageLimit)) {
+                if (!usageLimit || String(usageLimit).trim() === '') {
+                    throw new Error('Usage limit is required');
+                }
+                const _usageLimit = Number(usageLimit);
+                if (!_usageLimit || _usageLimit < 0) {
+                    throw new Error('Usage limit must be an integer and must be greater than or equal to 0');
+                }
+            }
+
+            return true;
+        }),
+        check('applicableProducts').custom((applicableProducts) => {
+            applicableProducts.map((product) => {
+                if (!ObjectId.isValid(product)) {
+                    throw new Error('Product ID: "' + product + '" is not valid');
+                }
+            });
+            return true;
+        }),
+    ],
+    updateDiscountCode: [
+        check('code').trim().not().isEmpty().withMessage('Code is required'),
+        check('discountType').custom((discountType) => {
+            if (!discountType || discountType.trim() == '') {
+                throw new Error('Discount type is required');
+            }
+            if (discountType !== 'percent' && discountType !== 'money') {
+                throw new Error('Discount type must be "percent" or "money"');
+            }
+            return true;
+        }),
+        check('discount').custom((discount) => {
+            if (!discount || String(discount).trim() === '') {
+                throw new Error('Discount is required');
+            }
+            const _discount = Number(discount);
+            if (!_discount || _discount < 0) {
+                throw new Error('Discount must be an integer and must be greater than or equal to 0');
+            }
+            return true;
+        }),
+        check('startDate')
+            .not()
+            .isEmpty()
+            .withMessage('Start date is required')
+            .isDate()
+            .withMessage('Start date is valid'),
+
+        check('endDate')
+            .not()
+            .isEmpty()
+            .withMessage('End date is required')
+            .isDate()
+            .withMessage('End date is valid')
+            .custom((endDate, { req }) => {
+                if (new Date(endDate) < new Date(req.body.startDate) || new Date(endDate) <= new Date()) {
+                    throw new Error(
+                        'The end date must be greater than or equal to the start date and must be greater than or equal to now',
+                    );
+                }
+                return true;
+            }),
+        check('isUsageLimit')
+            .trim()
+            .not()
+            .isEmpty()
+            .withMessage('isUsageLimit is required')
+            .isBoolean()
+            .withMessage('isUsageLimit must be a boolean'),
+        check('usageLimit').custom((usageLimit, { req }) => {
+            if (new Boolean(req.body.isUsageLimit)) {
+                if (!usageLimit || String(usageLimit).trim() === '') {
+                    throw new Error('Usage limit is required');
+                }
+                const _usageLimit = Number(usageLimit);
+                if (!_usageLimit || _usageLimit < 0) {
+                    throw new Error('Usage limit must be an integer and must be greater than or equal to 0');
+                }
+            }
+
+            return true;
+        }),
+        check('applicableProducts').custom((applicableProducts) => {
+            applicableProducts.map((product) => {
+                if (!ObjectId.isValid(product)) {
+                    throw new Error('Product ID: "' + product + '" is not valid');
+                }
+            });
+            return true;
+        }),
+    ],
 
     //====================Validate User==================
     register: [
