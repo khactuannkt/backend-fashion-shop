@@ -41,14 +41,20 @@ const orderItem = mongoose.Schema({
         type: Number,
         required: true,
     },
-    size: {
-        type: String,
-        required: true,
-    },
-    color: {
-        type: String,
-        required: true,
-    },
+    // size: {
+    //     type: String,
+    //     required: true,
+    // },
+    // color: {
+    //     type: String,
+    //     required: true,
+    // },
+    attributes: [
+        {
+            name: { type: String, required: true },
+            value: { type: String, required: true },
+        },
+    ],
     price: {
         type: Number,
         required: true,

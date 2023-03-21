@@ -166,14 +166,29 @@ const getAllProductsByAdmin = async (req, res) => {
     res.json({ products, page, pages: Math.ceil(count / pageSize), countProducts: count });
 };
 
+const getProductBySlug = async (req, res) => {
+    const slug = req.params.slug.toString().trim() || '';
+    const product = await Product.findOne({ slug: slug }).populate('variants');
+    if (!product) {
+        res.status(404);
+        throw new Error('Sản phẩm không tồn tại');
+    }
+    res.status(200).json({ data: { product } });
+};
+
 const getProductById = async (req, res) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ error_message: message });
+    }
     const product = await Product.findById(req.params.id).populate('variants');
     if (!product) {
         res.status(404);
-        throw new Error('Product not found');
+        throw new Error('Sản phẩm không tồn tại');
     }
-    res.status(200);
-    res.json(product);
+    res.status(200).json({ data: { product } });
 };
 
 const reviewProduct = async (req, res) => {
@@ -342,32 +357,21 @@ const createProduct = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        const errorMessages = errors.array().reduce((acc, error) => {
-            const { param, msg } = error;
-            if (!acc[param]) {
-                acc[param] = msg;
-            }
-            return acc;
-        }, {});
-        return res.status(400).json({ success: false, message: 'An error occurred', errors: errorMessages });
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ error_message: message });
     }
-    let { name, description, category, brand, keywords, price = 0, priceSale = 0, quantity, variants } = req.body;
+    let { name, description, category, brand, keywords, variants } = req.body;
 
     const findProduct = Product.findOne({ name });
-    if (!ObjectId.isValid(category)) {
-        res.status(400);
-        throw new Error('ID category is not valid');
-    }
     const findCategory = Category.findById(category);
     const [existedProduct, existedCategory] = await Promise.all([findProduct, findCategory]);
-
     if (existedProduct) {
         res.status(400);
-        throw new Error('Product name already exist');
+        throw new Error('Tên sản phẩm đã tồn tại');
     }
     if (!existedCategory) {
         res.status(400);
-        throw new Error('Category is not found');
+        throw new Error('Thể loại không tồn tại');
     }
     //generate slug
     let generatedSlug = slug(name);
@@ -376,7 +380,7 @@ const createProduct = async (req, res) => {
         generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
     }
     // upload image to cloundinary
-    const images = req.body.images || [];
+    const images = [];
     if (req.files && req.files.length > 0) {
         const uploadListImage = req.files.map(async (image) => {
             const uploadImage = await cloudinaryUpload(image.path, 'FashionShop/products');
@@ -403,35 +407,16 @@ const createProduct = async (req, res) => {
         images,
         brand,
         keywords,
-        price,
-        priceSale,
-        quantity,
     });
     // const newProduct = await product.save();
     if (variants && variants.length > 0) {
         const productVariants = variants.map((variant) => {
-            if (!variant.attributes || variant.attributes.length === 0) {
-                res.status(400);
-                throw new Error('Attributes is required');
-            }
-            if (!variant.price || variant.price <= 0) {
-                res.status(400);
-                throw new Error('Price must be an integer and must be greater than 0');
-            }
-            if (!variant.priceSale || variant.priceSale <= 0) {
-                res.status(400);
-                throw new Error('Price sale must be an integer and must be greater than 0');
-            }
-            if (!variant.quantity || variant.quantity < 0) {
-                res.status(400);
-                throw new Error('The quantity must be an integer and must be greater than or equal to 0');
-            }
             return new Variant({ product: product._id, ...variant });
         });
         const createdVariants = await Variant.insertMany(productVariants);
         if (createdVariants.length === 0) {
             res.status(400);
-            throw new Error('Invalid product data');
+            throw new Error('Thông tin sản phẩm không hợp lệ');
         }
         let minPriceSale = createdVariants[0].priceSale;
         let minPrice = createdVariants[0].price;
@@ -444,15 +429,13 @@ const createProduct = async (req, res) => {
             }
             return variant._id;
         });
-
         product.variants = variantIds;
         product.price = minPrice;
         product.priceSale = minPriceSale;
         product.quantity = totalQuantity;
     }
     const newProduct = await (await product.save()).populate('variants');
-    res.status(201);
-    res.json({ success: true, message: 'Add successful Product', data: { newProduct } });
+    res.status(201).json({ message: 'Thêm sản phẩm thành công', data: { newProduct } });
 };
 
 const getProductSearchResults = async (req, res) => {
@@ -474,6 +457,7 @@ const getProductSearchResults = async (req, res) => {
 };
 
 const productController = {
+    getProductBySlug,
     getProductById,
     getProducts,
     getAllProductsByAdmin,

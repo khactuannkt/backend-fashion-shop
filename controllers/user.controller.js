@@ -12,11 +12,17 @@ import { validationResult } from 'express-validator';
 
 dotenv.config();
 
-const login = async (req, res, next) => {
+const getUsersByAdmin = async (res) => {
+    const users = await User.find();
+    res.json({ data: { users } });
+};
+
+const login = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        return res.status(400).json({ success: false, message: 'An error occurred', ...errors });
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ error_message: message });
     }
 
     const { email, password } = req.body;
@@ -26,7 +32,7 @@ const login = async (req, res, next) => {
         if (user.isVerified === false) {
             res.status(401);
             throw new Error(
-                'Your account has not been verified. Please check your email to verify your account before logging in.',
+                'Tài khoản của bạn chưa được xác minh. Vui lòng kiểm tra email của bạn để xác minh tài khoản trước khi đăng nhập.',
             );
         }
         const userData = {
@@ -42,40 +48,33 @@ const login = async (req, res, next) => {
             createdAt: user.createdAt,
             updatedAt: user.updatedAt,
         };
-        const accessToken = generateAuthToken({ _id: user._id }, process.env.ACCESS_JWT_SECRET, {
-            expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN_MINUTE * 60,
-        });
-        const refreshToken = generateAuthToken({ _id: user._id }, process.env.REFRESH_JWT_SECRET, {
-            expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN_MINUTE * 60,
-        });
+        const generateToken = generateAuthToken(user._id);
         const newToken = await new Token({
             user: user._id,
-            accessToken: accessToken,
-            refreshToken: refreshToken,
+            ...generateToken,
         }).save();
         if (!newToken) {
             res.status(500);
             throw new Error('Authentication token generation failed');
         }
         res.status(200).json({
-            success: true,
             data: {
                 user: userData,
-                accessToken: accessToken,
-                refreshToken: refreshToken,
+                ...generateToken,
             },
         });
     } else {
         res.status(401);
-        throw new Error('Invalid email or password');
+        throw new Error('Email hoặc mật khẩu sai');
     }
 };
 
-const register = async (req, res, next) => {
+const register = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        return res.status(400).json({ success: false, message: 'An error occurred', ...errors });
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ error_message: message });
     }
 
     const { name, phone, password } = req.body;
@@ -83,7 +82,7 @@ const register = async (req, res, next) => {
     const userExists = await User.findOne({ email });
     if (userExists) {
         res.status(400);
-        throw new Error('User already exists');
+        throw new Error('Tài khoản đã tồn tại');
     }
 
     const user = await User.create({
@@ -94,7 +93,6 @@ const register = async (req, res, next) => {
     });
     const emailVerificationToken = user.getEmailVerificationToken();
     await user.save();
-    console.log(emailVerificationToken);
     const url = `${process.env.USER_PAGE_URL}register/confirm?emailVerificationToken=${emailVerificationToken}`;
     const html = htmlMailVerify(emailVerificationToken);
 
@@ -111,37 +109,36 @@ const register = async (req, res, next) => {
     //set up message options
     const messageOptions = {
         recipient: user.email,
-        subject: 'Verify Email',
+        subject: 'Xác thực tài khoản Fashion Shop',
         html: html,
     };
 
     //send verify email
     await sendMail(messageOptions);
     res.status(200).json({
-        success: true,
         message:
-            'Successful account registration. Please access your email to verify your account. Registration requirements will expire within 24 hours.',
+            'Đăng ký tài khoản thành công. Vui lòng truy cập email của bạn để xác minh tài khoản của bạn. Yêu cầu đăng ký sẽ hết hạn trong vòng 24 giờ.',
     });
 };
 
-const verifyEmail = async (req, res, next) => {
+const verifyEmail = async (req, res) => {
     const emailVerificationToken = req.query.emailVerificationToken.toString().trim();
     if (!emailVerificationToken || emailVerificationToken === '') {
         res.status(400);
-        throw new Error('Email verification token is required');
+        throw new Error('Token xác minh email không hợp lệ');
     }
     const hashedToken = crypto.createHash('sha256').update(emailVerificationToken).digest('hex');
     const user = await User.findOne({ emailVerificationToken: hashedToken, isVerified: false });
     if (!user) {
         res.status(400);
-        throw new Error('Email verification token is not valid');
+        throw new Error('Mã thông báo xác minh email không tồn tại');
     }
     user.isVerified = true;
     user.emailVerificationToken = null;
     const verifiedUser = await user.save();
     if (!verifiedUser) {
         res.status(500);
-        throw new Error('Account verification failed');
+        throw new Error('Xác minh tài khoản không thành công');
     }
     const userData = {
         _id: verifiedUser._id,
@@ -160,28 +157,20 @@ const verifyEmail = async (req, res, next) => {
         user: verifiedUser._id,
         cartItems: [],
     });
-    const accessToken = generateAuthToken({ _id: verifiedUser._id }, process.env.ACCESS_JWT_SECRET, {
-        expiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN_MINUTE * 60,
-    });
-    const refreshToken = generateAuthToken({ _id: verifiedUser._id }, process.env.ACCESS_JWT_SECRET, {
-        expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN_MINUTE * 60,
-    });
+    const generateToken = generateAuthToken(verifiedUser._id);
     const newToken = await new Token({
         user: verifiedUser._id,
-        accessToken: accessToken,
-        refreshToken: refreshToken,
+        ...generateToken,
     }).save();
     if (!newToken) {
         res.status(500);
         throw new Error('Authentication token generation failed');
     }
     res.status(200).json({
-        success: true,
-        message: 'Email verification successful',
+        message: 'Xác minh Tài khoản thành công',
         data: {
             user: userData,
-            accessToken: newToken.accessToken,
-            refreshToken: newToken.refreshToken,
+            ...generateToken,
         },
     });
 };
@@ -190,28 +179,30 @@ const cancelVerifyEmail = async (req, res, next) => {
     const emailVerificationToken = req.query.emailVerificationToken.toString().trim();
     if (!emailVerificationToken || emailVerificationToken === '') {
         res.status(400);
-        throw new Error('Email verification token is required');
+        throw new Error('Mã thông báo xác minh email không hợp lệ');
     }
     const hashedToken = crypto.createHash('sha256').update(emailVerificationToken).digest('hex');
     const user = await User.findOneAndDelete({ emailVerificationToken: hashedToken, isVerified: false });
     if (!user) {
         res.status(400);
-        throw new Error('Email verification token is not valid');
+        throw new Error('Mã thông báo xác minh email không tồn tại');
     }
-    res.status(200).json({ success: true, message: 'Canceling email verification succeed' });
+    res.status(200).json({ message: 'Hủy xác minh email thành công' });
 };
 
 const forgotPassword = async (req, res, next) => {
-    const { email } = req.body;
-    if (!email || email.toString().trim() === '') {
-        res.status(400);
-        throw new Error('Email is required');
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ error_message: message });
     }
+    const { email } = req.body;
     const user = await User.findOne({ email, isVerified: true });
 
     if (!user) {
         res.status(400);
-        throw new Error('Email not found');
+        throw new Error('Tài khoản không tồn tại');
     }
 
     // Reset password
@@ -225,69 +216,61 @@ const forgotPassword = async (req, res, next) => {
     // Set up message options
     const messageOptions = {
         recipient: user.email,
-        subject: 'Reset Password',
+        subject: 'Đặt lại mật khẩu',
         html,
     };
 
     // Send reset password email
     await sendMail(messageOptions);
-    res.status(200).json({ success: true, message: 'Sending reset password email successfully' });
+    res.status(200).json({
+        message: 'Yêu cầu đặt lại mật khẩu thành công. Hãy kiểm tra hộp thư email của bạn',
+    });
 };
 
 const resetPassword = async (req, res) => {
+    // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        const errorMessages = errors.array().reduce((acc, error) => {
-            const { param, msg } = error;
-            if (!acc[param]) {
-                acc[param] = msg;
-            }
-            return acc;
-        }, {});
-        return res.status(400).json({ success: false, message: 'An error occurred', errors: errorMessages });
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ error_message: message });
     }
-    const resetPasswordToken = req.query.resetPasswordToken.toString().trim();
-
-    const { email, newPassword } = req.body;
-
-    const isEmailExisted = await User.findOne({ email: email, isVerified: true });
-    if (!isEmailExisted) {
-        res.status(400);
-        throw new Error('Email not found');
-    }
+    const { newPassword } = req.body;
+    const { resetPasswordToken } = req.query;
     const hashedToken = crypto.createHash('sha256').update(resetPasswordToken).digest('hex');
     const user = await User.findOne({
-        _id: isEmailExisted._id,
         resetPasswordToken: hashedToken,
-        resetPasswordTokenExpiryTime: {
-            $gte: Date.now(),
-        },
         isVerified: true,
     });
     if (!user) {
         res.status(400);
-        throw new Error('Reset password token is not valid');
+        throw new Error('Mã thông báo đặt lại mật khẩu không tồn tại');
     }
+    if (user.resetPasswordTokenExpiryTime < Date.now()) {
+        res.status(400);
+        throw new Error('Yêu cầu đặt lại mật khẩu đã hết hạn');
+    }
+
     user.password = newPassword;
     user.resetPasswordToken = null;
     user.resetPasswordTokenExpiryTime = null;
     await user.save();
-    res.status(200).json({ success: true, message: 'Your password has been reset' });
+    await Token.deleteMany({ user: user._id });
+    res.status(200).json({ message: 'Mật khẩu của bạn đã được đặt lại' });
 };
 
 const cancelResetPassword = async (req, res) => {
     const resetPasswordToken = req.query.resetPasswordToken.toString().trim();
     if (!resetPasswordToken || resetPasswordToken === '') {
         res.status(400);
-        throw new Error('Reset password token is required');
+        throw new Error('Mã thông báo đặt lại mật khẩu không hợp lệ');
     }
     const hashedToken = crypto.createHash('sha256').update(resetPasswordToken).digest('hex');
     const user = await User.findOneAndUpdate(
         {
             resetPasswordToken: hashedToken,
-            resetPasswordTokenExpiryTime: {
-                $gte: Date.now() * process.env.RESET_PASSWORD_EXPIRY_TIME_IN_MINUTE * 60 * 1000,
-            },
+            // resetPasswordTokenExpiryTime: {
+            //     $gte: Date.now() * process.env.RESET_PASSWORD_EXPIRY_TIME_IN_MINUTE * 60 * 1000,
+            // },
             isVerified: true,
         },
         {
@@ -297,9 +280,9 @@ const cancelResetPassword = async (req, res) => {
     );
     if (!user) {
         res.status(400);
-        throw new Error('Reset password token is not found');
+        throw new Error('Mã thông báo đặt lại mật khẩu không tồn tại');
     }
-    res.status(200).json({ success: true, message: 'Canceling reset password succeed' });
+    res.status(200).json({ message: 'Hủy yêu cầu đặt lại mật khẩu thành công' });
 };
 
 const getProfile = async (req, res) => {
@@ -312,11 +295,9 @@ const getProfile = async (req, res) => {
     });
     if (!user) {
         res.status(404);
-        throw new Error('User not found');
+        throw new Error('Tài khoản không tồn tại');
     }
     res.status(200).json({
-        success: true,
-        message: 'Successfully retrieved user profile',
         data: {
             user: {
                 _id: user._id,
@@ -336,20 +317,24 @@ const getProfile = async (req, res) => {
 };
 
 const updateProfile = async (req, res) => {
-    const user = await User.findById(req.user._id);
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ error_message: message });
+    }
 
+    const user = await User.findById(req.user._id);
     if (user) {
         user.name = req.body.name || user.name;
-        // user.email = req.body.email || user.email;
         user.phone = req.body.phone || user.phone;
         user.gender = req.body.gender || user.gender;
-        user.avatar = req.body.avatar || user.avatar;
+        // user.avatar = req.body.avatar || user.avatar;
         user.birthday = req.body.birthday || user.birthday;
         user.address = req.body.address || user.address;
         const updatedUser = await user.save();
         res.status(200).json({
-            success: true,
-            message: '',
+            message: 'Cập nhật thông tin tài khoản thành công',
             data: {
                 user: {
                     _id: updatedUser._id,
@@ -368,53 +353,47 @@ const updateProfile = async (req, res) => {
         });
     } else {
         res.status(404);
-        throw new Error('User not found');
+        throw new Error('Tài khoản không tồn tại');
     }
 };
 
 const changePassword = async (req, res) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ error_message: message });
+    }
     const { currentPassword, newPassword } = req.body;
-    if (!currentPassword && currentPassword.length() <= 0) {
-        res.status(400);
-        throw new Error('Current password is not valid');
-    }
-    if (!newPassword && newPassword.length() <= 0) {
-        res.status(400);
-        throw new Error('New password is not valid');
-    }
+
     const user = await User.findById(req.user._id);
     if (!user) {
         res.status(404);
-        throw new Error('User not found');
+        throw new Error('Tài khoản không tồn tại');
     }
-    if (await user.matchPassword(req.body.currentPassword)) {
+    if (await user.matchPassword(currentPassword)) {
         user.password = newPassword;
         await user.save();
-        res.status(200);
-        res.json({
-            token: generateAuthToken({ _id: user._id }),
+        await Token.deleteMany({ user: user._id });
+        const generateToken = generateAuthToken(verifiedUser._id);
+        const newToken = await new Token({
+            user: user._id,
+            ...generateToken,
+        }).save();
+        if (!newToken) {
+            res.status(500);
+            throw new Error('Authentication token generation failed');
+        }
+        res.status(200).json({
+            message: 'Thay đổi mật khẩu thành công',
+            data: { ...generateToken },
         });
     } else {
         res.status(400);
-        throw new Error('Current password is not correct!');
+        throw new Error('Mật khẩu hiện tại không đúng');
     }
 };
 
-const getUsersByAdmin = async (req, res) => {
-    const users = await User.find();
-    res.json(users);
-};
-
-const deleteUserById = async (req, res) => {
-    const deletedUser = await User.findByIdAndDelete(req.params.id);
-    if (!deletedUser) {
-        res.status(404);
-        throw new Error('User not found');
-    }
-    await Cart.findOneAndDelete({ user: deletedUser });
-    res.status(200);
-    res.json({ message: 'User had been removed' });
-};
 const userController = {
     login,
     register,
@@ -427,6 +406,5 @@ const userController = {
     resetPassword,
     cancelVerifyEmail,
     cancelResetPassword,
-    deleteUserById,
 };
 export default userController;

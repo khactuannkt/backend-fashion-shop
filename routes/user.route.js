@@ -11,11 +11,16 @@ userRouter.get('/', protect, auth('staff', 'admin'), asyncHandler(userController
 userRouter.post('/login', validate.login, asyncHandler(userController.login));
 userRouter.post('/refresh-token', validate.login, asyncHandler(userController.login));
 userRouter.post('/register', validate.register, asyncHandler(userController.register));
-userRouter.put('/profile', protect, asyncHandler(userController.updateProfile));
+userRouter.put('/profile', validate.updateProfile, protect, asyncHandler(userController.updateProfile));
 userRouter.patch('/auth/verify-email', asyncHandler(userController.verifyEmail));
 userRouter.patch('/auth/cancel-verify-email', asyncHandler(userController.cancelVerifyEmail));
-userRouter.patch('/auth/change-password', protect, asyncHandler(userController.changePassword));
-userRouter.patch('/auth/forgot-password', asyncHandler(userController.forgotPassword));
+userRouter.patch(
+    '/auth/change-password',
+    validate.changePassword,
+    protect,
+    asyncHandler(userController.changePassword),
+);
+userRouter.patch('/auth/forgot-password', validate.forgotPassword, asyncHandler(userController.forgotPassword));
 userRouter.patch('/auth/reset-password', validate.resetPassword, asyncHandler(userController.resetPassword));
 userRouter.patch('/auth/cancel-reset-password', asyncHandler(userController.cancelResetPassword));
 export default userRouter;

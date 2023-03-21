@@ -199,6 +199,10 @@ const createOrder = async (req, res, next) => {
         res.status(400);
         throw new Error('No order items');
     }
+    const orderItemIds = [];
+    orderItems.map((orderItem) => {
+        orderItemIds.push(orderItem.variant);
+    });
     const cart = await Cart.findOne({ user: req.user._id });
     if (!cart) {
         res.status(404);
@@ -268,7 +272,7 @@ const createOrder = async (req, res, next) => {
                 }
                 const orderedProduct = await Product.findOneAndUpdate(
                     { _id: orderedVariant.product },
-                    { $inc: { totalSales: +orderItem.quantity } },
+                    { $inc: { totalSales: +orderItem.quantity, quantity: -orderItem.quantity } },
                 ).session(session);
                 if (!orderedProduct) {
                     await session.abortTransaction();
@@ -278,9 +282,10 @@ const createOrder = async (req, res, next) => {
                 let dataFilledrOrderItem = {
                     product: orderedVariant.product,
                     name: orderedProduct.name,
-                    image: orderedProduct.image,
-                    size: orderedVariant.size,
-                    color: orderedVariant.color,
+                    image: orderedVariant.image || orderedProduct.images[0] || 'test',
+                    // size: orderedVariant.size,
+                    // color: orderedVariant.color,
+                    attributes: orderedVariant.attributes,
                     price: orderedVariant.price,
                     ...orderItem,
                 };
@@ -297,7 +302,7 @@ const createOrder = async (req, res, next) => {
                 res.status(500);
                 throw new Error('Removing ordered items from cart failed');
             }
-            order.statusHistory.push({ status: 'Placed' });
+            order.statusHistory.push({ status: 'pending' });
             const createdOrder = await order.save();
             if (!createdOrder) {
                 await session.abortTransaction();

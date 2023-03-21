@@ -6,11 +6,11 @@ import { multerUpload } from '../utils/multer.js';
 import validate from '../middleware/validate.middleware.js';
 
 const productRouter = express.Router();
+productRouter.get('/slug/:slug', asyncHandler(productController.getProductBySlug));
 productRouter.get('/admin', protect, auth('staff', 'admin'), asyncHandler(productController.getAllProductsByAdmin));
 productRouter.get('/recommend', asyncHandler(productController.getProductSearchResults));
-productRouter.get('/:id', asyncHandler(productController.getProductById));
+productRouter.get('/:id', validate.getProductById, asyncHandler(productController.getProductById));
 productRouter.get('/', asyncHandler(productController.getProducts));
-productRouter.get('/slug/:slug', asyncHandler(productController.getProductById));
 productRouter.post(
     '/',
     validate.createProduct,

@@ -30,7 +30,7 @@ const variantSchema = mongoose.Schema(
             required: true,
         },
         image: {
-            type: Number,
+            type: String,
         },
         quantity: {
             type: Number,
