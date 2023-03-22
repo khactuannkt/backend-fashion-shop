@@ -8,7 +8,7 @@ import validate from '../middleware/validate.middleware.js';
 const productRouter = express.Router();
 productRouter.get('/slug/:slug', asyncHandler(productController.getProductBySlug));
 productRouter.get('/admin', protect, auth('staff', 'admin'), asyncHandler(productController.getAllProductsByAdmin));
-productRouter.get('/recommend', asyncHandler(productController.getProductSearchResults));
+productRouter.get('/recommend', asyncHandler(productController.getProductRecommend));
 productRouter.get('/:id', validate.getProductById, asyncHandler(productController.getProductById));
 productRouter.get('/', asyncHandler(productController.getProducts));
 productRouter.post(
@@ -19,15 +19,47 @@ productRouter.post(
     multerUpload.array('productImage'),
     asyncHandler(productController.createProduct),
 );
-productRouter.post('/:id/review', protect, auth('customer'), asyncHandler(productController.reviewProduct));
+productRouter.post(
+    '/:id/review',
+    validate.review,
+    protect,
+    auth('customer'),
+    asyncHandler(productController.reviewProduct),
+);
 productRouter.put(
     '/:id',
+    validate.updateProduct,
     protect,
-    auth('admin'),
+    auth('staff', 'admin'),
     multerUpload.array('productImage'),
     asyncHandler(productController.updateProduct),
 );
-productRouter.patch('/:id/disable', protect, auth('staff', 'admin'), asyncHandler(productController.reviewProduct));
-productRouter.patch('/:id/restore', protect, auth('staff', 'admin'), asyncHandler(productController.reviewProduct));
-productRouter.delete('/:id', protect, auth('staff', 'admin'), asyncHandler(productController.deleteProduct));
+productRouter.patch(
+    '/:id/hide',
+    validate.hide,
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(productController.hideProduct),
+);
+productRouter.patch(
+    '/:id/unhide',
+    validate.unhide,
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(productController.unhideProduct),
+);
+productRouter.patch(
+    '/:id/restore',
+    validate.restore,
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(productController.restoreProduct),
+);
+productRouter.delete(
+    '/:id',
+    validate.delete,
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(productController.deleteProduct),
+);
 export default productRouter;

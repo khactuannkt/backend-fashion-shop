@@ -5,8 +5,8 @@ const orderStatus = mongoose.Schema(
         status: {
             type: String,
             required: true,
-            enum: ['pending', 'delivering', 'delivered', 'cancelled'],
-            default: 'pending',
+            enum: ['placed', 'confirm', 'delivering', 'paid', 'delivered', 'cancelled', 'completed'],
+            default: 'placed',
         },
         description: {
             type: String,
@@ -102,7 +102,8 @@ const orderSchema = mongoose.Schema(
         paymentMethod: {
             type: String,
             required: true,
-            default: 'Payment in cash',
+            enum: ['Payment with cash', 'Payment with MoMo'],
+            default: 'Payment with cash',
         },
         taxPrice: {
             type: Number,

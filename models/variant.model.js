@@ -36,6 +36,9 @@ const variantSchema = mongoose.Schema(
             type: Number,
             required: true,
         },
+        deleted: {
+            type: Date,
+        },
         disabled: {
             type: Boolean,
             required: true,

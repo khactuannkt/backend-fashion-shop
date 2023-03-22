@@ -8,17 +8,14 @@ import categoryRouter from './category.route.js';
 import discountCodeRouter from './discountCode.route.js';
 import testRouter from './test.route.js';
 const routes = (app) => {
-    app.use('/api/v1/banner', bannerRouter);
-    app.use('/api/v1/cart', cartRouter);
+    app.use('/api/v1/banners', bannerRouter);
+    app.use('/api/v1/carts', cartRouter);
     app.use('/api/v1/categories', categoryRouter);
-    app.use('/api/v1/discount-code', discountCodeRouter);
-    app.use('/api/v1/import', ImportData);
-    app.use('/api/v1/order', orderRouter);
-    app.use('/api/v1/product', productRouter);
-    app.use('/api/v1/user', userRouter);
-    app.use('/api/v1/test', testRouter);
-    app.get('/api/v1/config/paypal', (req, res) => {
-        res.send(process.env.PAYPAL_CLIENT_ID);
-    });
+    app.use('/api/v1/discount-codes', discountCodeRouter);
+    app.use('/api/v1/imports', ImportData);
+    app.use('/api/v1/orders', orderRouter);
+    app.use('/api/v1/products', productRouter);
+    app.use('/api/v1/users', userRouter);
+    app.use('/api/v1/tests', testRouter);
 };
 export default routes;

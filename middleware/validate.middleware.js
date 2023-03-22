@@ -1,13 +1,6 @@
 import { body, check, validationResult } from 'express-validator';
 import { ObjectId } from 'mongodb';
-function isUrl(str) {
-    try {
-        const parsedUrl = new URL(str);
-        return parsedUrl.href === str;
-    } catch (err) {
-        return false;
-    }
-}
+
 const validate = {
     //====================Validate Banner==================
     getBannerById: [
@@ -497,6 +490,107 @@ const validate = {
             .trim()
             .notEmpty()
             .withMessage('Giá trị các thuộc tính của biến thể sản phẩm không được để trống'),
+    ],
+    updateProduct: [
+        check('id').custom((id) => {
+            if (!ObjectId.isValid(id)) {
+                throw new Error('ID sản phẩm không hợp lệ');
+            }
+            return true;
+        }),
+        check('name').trim().notEmpty().withMessage('Tên sản phẩm không được để trống'),
+        check('description').trim().notEmpty().withMessage('Mô tả sản phẩm không được để trống'),
+        check('category')
+            .notEmpty()
+            .withMessage('Thể loại sản phẩm không được để trống')
+            .custom((category) => {
+                if (!ObjectId.isValid(category)) {
+                    throw new Error('ID thể loại không hợp lệ');
+                }
+                return true;
+            }),
+        check('images').isArray().withMessage('Danh sách hình ảnh phải là mảng'),
+        check('images.*').isURL().withMessage('Danh sách hình ảnh phải là các URL hoặc file'),
+        check('brand').trim().notEmpty().withMessage('Thương hiệu sản phẩm không được để trống'),
+        check('keywords').isArray().withMessage('Danh sách từ khóa sản phẩm phải là mảng '),
+        check('variants')
+            .isArray()
+            .withMessage('Danh sách biến thể phải là mảng')
+            .notEmpty()
+            .withMessage('Danh sách các biến thể không được để trống'),
+        check('variants.*.price')
+            .notEmpty()
+            .withMessage('Giá của các biến thể sản phẩm không được để trống')
+            .isInt({ min: 0 })
+            .withMessage('Giá của các biến thể sản phẩm phải là số nguyên và phài lớn hơn hoặc bằng 0'),
+        check('variants.*.priceSale')
+            .notEmpty()
+            .withMessage('Giá đã giảm của các biến thể sản phẩm không được để trống')
+            .isInt({ min: 0 })
+            .withMessage('Giá đã giảm của các biến thể sản phẩm phải là số nguyên và phài lớn hơn hoặc bằng 0'),
+        check('variants.*.quantity')
+            .notEmpty()
+            .withMessage('Số lượng các biến thể sản phẩm không được để trống')
+            .isInt({ min: 0 })
+            .withMessage('Số lượng các biến thể sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0'),
+        check('variants.*.attributes')
+            .isArray()
+            .withMessage('Danh sách thuộc tính của biến thể phải là mảng')
+            .notEmpty()
+            .withMessage('Danh sách thuộc tính các biến thể không được để trống'),
+        check('variants.*.attributes.*.name')
+            .trim()
+            .notEmpty()
+            .withMessage('Tên các thuộc tính của biến thể sản phẩm không được để trống'),
+        check('variants.*.attributes.*.value')
+            .trim()
+            .notEmpty()
+            .withMessage('Giá trị các thuộc tính của biến thể sản phẩm không được để trống'),
+    ],
+    review: [
+        check('id').custom((id) => {
+            if (!ObjectId.isValid(id)) {
+                throw new Error('ID sản phẩm không hợp lệ');
+            }
+            return true;
+        }),
+        check('rating')
+            .notEmpty()
+            .withMessage('Số sao đánh giá không được để trống')
+            .isInt({ min: 1, max: 5 })
+            .withMessage('Số sao đánh giá phải là số nguyên từ 1 đến 5'),
+    ],
+    hide: [
+        check('id').custom((id) => {
+            if (!ObjectId.isValid(id)) {
+                throw new Error('ID sản phẩm không hợp lệ');
+            }
+            return true;
+        }),
+    ],
+    unhide: [
+        check('id').custom((id) => {
+            if (!ObjectId.isValid(id)) {
+                throw new Error('ID sản phẩm không hợp lệ');
+            }
+            return true;
+        }),
+    ],
+    restore: [
+        check('id').custom((id) => {
+            if (!ObjectId.isValid(id)) {
+                throw new Error('ID sản phẩm không hợp lệ');
+            }
+            return true;
+        }),
+    ],
+    delete: [
+        check('id').custom((id) => {
+            if (!ObjectId.isValid(id)) {
+                throw new Error('ID sản phẩm không hợp lệ');
+            }
+            return true;
+        }),
     ],
 };
 export default validate;

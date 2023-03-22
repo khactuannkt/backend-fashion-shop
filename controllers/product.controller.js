@@ -6,78 +6,10 @@ import Cart from '../models/cart.model.js';
 import Variant from '../models/variant.model.js';
 import { productQueryParams, validateConstants, priceRangeFilter, ratingFilter } from '../utils/searchConstants.js';
 import { cloudinaryUpload, cloudinaryRemove } from '../utils/cloudinary.js';
-import { check, validationResult } from 'express-validator';
+import { validationResult } from 'express-validator';
 import slug from 'slug';
-import { ObjectId } from 'mongodb';
-
-/* const getProducts = async (req, res) => {
-    const pageSize = 8;
-    const page = Number(req.query.pageNumber) || 1;
-    const rating = Number(req.query.rating) || 0;
-    const maxPrice = Number(req.query.maxPrice) || 0;
-    const minPrice = Number(req.query.minPrice) || 0;
-    const sortProducts = Number(req.query.sortProducts) || 1;
-    let search = {},
-        sort = {};
-    if (req.query.keyword) {
-        search.name = {
-            $regex: req.query.keyword,
-            $options: 'i',
-        };
-    }
-    if (req.query.category) {
-        search.category = req.query.category;
-    }
-    if (rating) {
-        search.rating = { $gte: rating };
-    }
-    if (maxPrice && minPrice) {
-        search.price = {
-            $gte: minPrice,
-            $lte: maxPrice,
-        };
-    }
-    if (sortProducts == 1) sort.createdAt = -1;
-    // if (sortProducts == 2) sort.numberOfOrder =-1;
-    if (sortProducts == 3) sort.price = 1;
-    if (sortProducts == 4) sort.price = -1;
-
-    const count = await Product.countDocuments({ ...search });
-    let products = await Product.find({ ...search })
-        .limit(pageSize)
-        .skip(pageSize * (page - 1))
-        .sort(sort);
-
-    // const orders = await Order.find({});
-    // products.map((product) => {
-    //     let count = 0;
-    //     orders.map((order) => {
-    //         order.orderItems.map((item) => {
-    //             if (product.name == item.nam) {
-    //                 count += item.qty;
-    //             }
-    //         });
-    //     });
-    //     product.numberOfOrders = count;
-    // });
-    // if (sortProducts == 2) {
-    // for (let product of products) {
-    //     let count = 0;
-    //     for (let order of orders) {
-    //         for (let item of order.orderItems) {
-    //             if (product._id === item.product) {
-    //                 count += item.qty;
-    //             }
-    //         }
-    //     }
-    //     product.numberOfOrders = count;
-    // }
-    // products.sort(function (a, b) {
-    //     return b.numberOfOrders - a.numberOfOrders;
-    // });
-    // }
-    res.json({ products, page, pages: Math.ceil(count / pageSize) });
-}; */
+import difference from 'lodash.difference';
+import differenceBy from 'lodash.differenceby';
 
 const getProducts = async (req, res) => {
     // const limit = Number(req.query.limit) || 12;
@@ -144,6 +76,24 @@ const getProducts = async (req, res) => {
     res.json({ products, page, pages: Math.ceil(count / pageSize), totalProducts: count });
 };
 
+const getProductRecommend = async (req, res) => {
+    const pageSize = Number(req.query.pageSize) || 20; //EDIT HERE
+    const keyword = req.query.keyword
+        ? {
+              name: {
+                  $regex: req.query.keyword,
+                  $options: 'i',
+              },
+          }
+        : {};
+    const productFilter = {
+        ...keyword,
+    };
+    const products = await Product.find(productFilter).limit(pageSize).select('name');
+    res.status(200);
+    res.json(products);
+};
+
 const getAllProductsByAdmin = async (req, res) => {
     const pageSize = 10;
     const page = Number(req.query.pageNumber) || 1;
@@ -191,168 +141,6 @@ const getProductById = async (req, res) => {
     res.status(200).json({ data: { product } });
 };
 
-const reviewProduct = async (req, res) => {
-    const { rating, comment } = req.body;
-    const productId = req.params.id || null;
-    const product = await Product.findOne({ _id: productId });
-    if (!product) {
-        res.status(404);
-        throw new Error('Product not found');
-    }
-    const order = await Order.findOne({
-        user: req.user._id,
-        'orderItems.product': product._id,
-        'orderItems.isAbleToReview': true,
-        'orderItems.statusHistory.status': 'Paid',
-    });
-    if (!order) {
-        res.status(400);
-        throw new Error('You need to buy this product first');
-    }
-    const review = {
-        name: req.user.name,
-        rating: Number(rating),
-        comment: comment,
-        user: req.user._id,
-    };
-    product.reviews.push(review);
-    product.rating =
-        product.reviews.reduce((previousValue, curentReview) => curentReview.rating + previousValue, 0) /
-        product.reviews.length;
-    const reviewOrderIndex = order.orderItems.findIndex((orderItem) => {
-        return orderItem.product.toString() == product._id.toString();
-    });
-    if (reviewOrderIndex != -1) {
-        order.orderItems[reviewOrderIndex].isAbleToReview = false;
-        await Promise.all([product.save(), order.save()]);
-    } else {
-        await product.save();
-    }
-    res.status(201);
-    res.json({ message: 'Added review' });
-};
-
-const deleteProduct = async (req, res) => {
-    const deletedProduct = await Product.findByIdAndDelete(req.params.id);
-    // const cart = await Cart.find({ 'cartItems.product': req.params.id });
-    if (!deletedProduct) {
-        res.status(404);
-        throw new Error('Product not found');
-        // res.json(newCart);
-    }
-    const publicId = deletedProduct.image.split('.').pop();
-    const removeCartItem = Cart.updateMany({}, { $pull: { cartItems: { deletedProduct: req.params.id } } });
-    const removeImage = cloudinaryRemove(publicId);
-    const removeVariants = Variant.deleteMany({ product: deleteProduct._id });
-    await Promise.all([removeCartItem, removeImage, removeVariants]);
-    res.json({ message: 'Product deleted' });
-};
-
-// const createProductByAdmin = async (req, res) => {
-//     const { name, price, description, category, image, countInStock } = req.body;
-//     const productExist = await Product.findOne({ name });
-//     if (price <= 0 || countInStock < 0 || price >= 10000 || countInStock >= 10000) {
-//         res.status(400);
-//         throw new Error('Price or Count in stock is not valid, please correct it and try again');
-//     }
-//     if (productExist) {
-//         res.status(400);
-//         throw new Error('Product name already exist');
-//     } else {
-//         const product = new Product({
-//             name,
-//             price,
-//             description,
-//             category,
-//             image,
-//             countInStock,
-//             user: req.user._id,
-//         });
-//         if (product) {
-//             const createdproduct = await product.save();
-//             res.status(201).json(createdproduct);
-//         } else {
-//             res.status(400);
-//             throw new Error('Invalid product data');
-//         }
-//     }
-// };
-
-const updateProduct = async (req, res) => {
-    const { name, price, description, category, image, countInStock } = req.body;
-    let variants = JSON.parse(req.body.variants);
-    const product = await Product.findById(req.params.id);
-    if (price <= 0 || countInStock < 0 || price >= 10000 || countInStock >= 10000) {
-        res.status(400);
-        throw new Error('Price or Count in stock is not valid, please correct it and try again');
-    }
-    if (!product) {
-        res.status(404);
-        throw new Error('Product not found');
-    }
-    if (variants.length == 0) {
-        res.status(400);
-        throw new Error('At least 1 variant remains');
-    }
-    //update product
-    product.name = name || product.name;
-    product.price = price || product.price;
-    product.description = description || product.description;
-    product.category = category || product.category;
-    product.image = image || product.image;
-    product.countInStock = countInStock || product.countInStock;
-    //update image
-    if (req.file) {
-        const image = await cloudinaryUpload(req.file.path, 'FashionShop/products');
-        if (!image) {
-            res.status(404);
-            throw new Error('Error while uploading image');
-        }
-        product.image = image.secure_url.toString();
-        const publicId = product.image.split('.').pop();
-        const removeOldImageCloudinary = cloudinaryRemove(publicId);
-        const removeNewImageLocal = fs.promises.unlink(req.file.path);
-        await Promise.all([removeOldImageCloudinary, removeNewImageLocal]);
-    }
-    //update variant
-    //update current variants
-    const newProductVariantIds = [];
-    const variantUpdates = variants.map((variant) => {
-        if (product.variants.indexOf(variant._id) != -1) {
-            newProductVariantIds.push(variant._id);
-            return Variant.findOneAndUpdate(
-                { _id: variant },
-                { size: variant.size, color: variant.color, quantity: variant.quantity, price: variant.price },
-                { new: true },
-            );
-        } else {
-            const newVariant = new Variant({
-                product: product._id,
-                size: variant.size,
-                color: variant.color,
-                quantity: variant.quantity,
-                price: variant.price,
-            });
-            newProductVariantIds.push(newVariant._id);
-            return newVariant.save();
-        }
-    });
-    const newVariants = await Promise.all(variantUpdates);
-    //delete stripped out variants
-    const outVariants = product.variants.filter((variant) => {
-        return newProductVariantIds.indexOf(variant.toString()) == -1;
-    });
-    await Variant.deleteMany({ _id: { $in: outVariants } });
-    product.variants = [...newProductVariantIds];
-    //recalculate product price
-    product.price =
-        newVariants.reduce((totalVariantPrice, currentVariant) => totalVariantPrice + currentVariant.price, 0) /
-        product.variants.length;
-    const updatedProduct = await product.save();
-    res.status(200);
-    res.json(updatedProduct);
-};
-
 const createProduct = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
@@ -398,7 +186,10 @@ const createProduct = async (req, res) => {
         const imageList = await Promise.all(uploadListImage);
         images.push(...imageList);
     }
-
+    if (images.length === 0) {
+        res.status(400);
+        throw new Error('Thiếu hình ảnh. Vui lòng đăng tải ít nhất 1 hình ảnh');
+    }
     const product = new Product({
         name,
         slug: generatedSlug,
@@ -438,33 +229,259 @@ const createProduct = async (req, res) => {
     res.status(201).json({ message: 'Thêm sản phẩm thành công', data: { newProduct } });
 };
 
-const getProductSearchResults = async (req, res) => {
-    const pageSize = Number(req.query.pageSize) || 20; //EDIT HERE
-    const keyword = req.query.keyword
-        ? {
-              name: {
-                  $regex: req.query.keyword,
-                  $options: 'i',
-              },
-          }
-        : {};
-    const productFilter = {
-        ...keyword,
+const updateProduct = async (req, res) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ error_message: message });
+    }
+
+    const { name, description, category, images, brand, keywords, variants } = req.body;
+    // let variants = JSON.parse(req.body.variants);
+    const currentProduct = await Product.findById(req.params.id);
+    if (!currentProduct) {
+        res.status(404);
+        throw new Error('Sản phẩm không tồn tại');
+    }
+
+    //update product
+    if (currentProduct.name != name) {
+        const existedProduct = await Product.findOne({ name });
+        if (existedProduct) {
+            res.status(400);
+            throw new Error('Tên sản phẩm đã tồn tại');
+        }
+        currentProduct.name = name;
+        //generate slug
+        let generatedSlug = slug(name);
+        const existSlug = await Product.findOne({ slug: generatedSlug });
+        if (existSlug) {
+            generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
+        }
+        currentProduct.slug = generatedSlug;
+    }
+    if (currentProduct.category != category) {
+        const existedCategory = await Category.findById(category);
+        if (!existedCategory) {
+            res.status(400);
+            throw new Error('Thể loại không tồn tại');
+        }
+        currentProduct.category = existedCategory._id;
+    }
+    currentProduct.description = description || currentProduct.description;
+    currentProduct.brand = brand || currentProduct.brand;
+    currentProduct.keywords = keywords || currentProduct.keywords;
+
+    //update image
+    const updateImages = images || [];
+    if (req.files && req.files.length > 0) {
+        const uploadListImage = req.files.map(async (image) => {
+            const uploadImage = await cloudinaryUpload(image.path, 'FashionShop/products');
+            if (!uploadImage) {
+                res.status(500);
+                throw new Error('Error while uploading image');
+            }
+            fs.unlink(image.path, (error) => {
+                if (error) {
+                    throw new Error(error);
+                }
+            });
+            return uploadImage.secure_url;
+        });
+        const imageList = await Promise.all(uploadListImage);
+        updateImages.push(...imageList);
+    }
+    if (updateImages.length === 0) {
+        res.status(400);
+        throw new Error('Thiếu hình ảnh. Vui lòng đăng tải ít nhất 1 hình ảnh');
+    }
+    const oldImages = currentProduct.images;
+    currentProduct.images = updateImages;
+    //update variant
+    //update current variants
+    const oldVariants = currentProduct.variants;
+    const variantUpdates = variants.map((variant) => {
+        if (currentProduct.variants.indexOf(variant._id) != -1) {
+            return Variant.findByIdAndUpdate(variant._id, { ...variant }, { new: true });
+        } else {
+            const newVariant = new Variant({
+                product: currentProduct._id,
+                ...variant,
+            });
+            return newVariant.save();
+        }
+    });
+    const updateVariants = await Promise.all(variantUpdates);
+    //recalculate product price and total quantity
+    let minPriceSale = updateVariants[0].priceSale;
+    let minPrice = updateVariants[0].price;
+    let totalQuantity = 0;
+    const variantIds = updateVariants.map((variant) => {
+        totalQuantity += variant.quantity;
+        if (minPriceSale > variant.priceSale) {
+            minPriceSale = variant.priceSale;
+            minPrice = variant.price;
+        }
+        return variant._id;
+    });
+    currentProduct.variants = variantIds;
+    currentProduct.price = minPrice;
+    currentProduct.priceSale = minPriceSale;
+    currentProduct.quantity = totalQuantity;
+
+    const updatedProduct = await currentProduct.save();
+    const compareVariants = differenceBy(oldVariants, updatedProduct.variants, '_id');
+    //Check the difference of 2 arrays
+    const compareImages = difference(oldImages, updatedProduct.images);
+    if (compareImages.length > 0) {
+        compareImages.map((image) => {
+            const publicId = image.substring(url.lastIndexOf('/') + 1, url.lastIndexOf('.'));
+            cloudinaryRemove('FashionShop/products/' + publicId);
+        });
+    }
+    if (compareVariants.length > 0) {
+        compareVariants.map((variant) => {
+            if (variant.image) {
+                const publicId = variant.image.substring(url.lastIndexOf('/') + 1, url.lastIndexOf('.'));
+                cloudinaryRemove('FashionShop/products/' + publicId);
+            }
+        });
+        await Variant.deleteMany({ _id: { $in: compareVariants } });
+    }
+    res.status(200).json({ message: 'Cập nhật Sản phẩm thành công', data: { updatedProduct } });
+};
+
+const reviewProduct = async (req, res) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ error_message: message });
+    }
+
+    const { rating, comment } = req.body;
+    const productId = req.params.id;
+    const product = await Product.findOne({ _id: productId });
+    if (!product) {
+        res.status(404);
+        throw new Error('Sản phẩm không tồn tại');
+    }
+    const order = await Order.findOne({
+        user: req.user._id,
+        'orderItems.product': product._id,
+        'orderItems.isAbleToReview': true,
+        'orderItems.statusHistory.status': 'completed',
+    });
+    if (!order) {
+        res.status(400);
+        throw new Error('Bạn cần mua sản phẩm này để có thể đánh giá nó');
+    }
+    const review = {
+        name: req.user.name,
+        rating: Number(rating),
+        comment: String(comment),
+        user: req.user._id,
     };
-    const products = await Product.find(productFilter).limit(pageSize).select('name');
-    res.status(200);
-    res.json(products);
+    product.reviews.push(review);
+    product.rating =
+        product.reviews.reduce((previousValue, currentReview) => previousValue + currentReview.rating, 0) /
+        product.reviews.length;
+    const reviewOrderIndex = order.orderItems.findIndex((orderItem) => {
+        return orderItem.product.toString() == product._id.toString();
+    });
+    if (reviewOrderIndex != -1) {
+        order.orderItems[reviewOrderIndex].isAbleToReview = false;
+        await Promise.all([product.save(), order.save()]);
+    } else {
+        await product.save();
+    }
+    res.status(201).json({ message: 'Đánh giá thành công' });
+};
+const hideProduct = async (req, res) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ error_message: message });
+    }
+    const productId = req.params.id || null;
+    const disabledProduct = await Product.findIdAndUpdate({ _id: productId }, { disabled: true });
+    if (!disabledProduct) {
+        res.status(404);
+        throw new Error('Sản phẩm không tồn tại!');
+    }
+    const disabledVariant = await Variant.updateMany({ product: productId }, { $set: { disabled: true } });
+
+    res.status(200).json({ message: 'Ẩn sản phẩm thành công' });
+};
+const unhideProduct = async (req, res) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ error_message: message });
+    }
+    const productId = req.params.id || null;
+    const disabledProduct = await Product.findIdAndUpdate({ _id: productId }, { disabled: false });
+    if (!disabledProduct) {
+        res.status(404);
+        throw new Error('Sản phẩm không tồn tại!');
+    }
+    const disabledVariant = await Variant.updateMany({ product: productId }, { $set: { disabled: false } });
+
+    res.status(200).json({ message: 'Bỏ ẩn sản phẩm thành công' });
+};
+const restoreProduct = async (req, res) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ error_message: message });
+    }
+    const productId = req.params.id || null;
+    const deletedProduct = await Product.findByIdAndUpdate(productId, { deleted: null });
+    if (!deletedProduct) {
+        res.status(404);
+        throw new Error('Sản phẩm không tồn tại');
+    }
+    const deletedVariant = await Variant.updateMany({ product: productId }, { $set: { deleted: null } });
+    res.status(200).json({
+        message: 'Khôi phục sản phẩm thành công',
+    });
+};
+const deleteProduct = async (req, res) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ error_message: message });
+    }
+    const productId = req.params.id || null;
+    const deletedProduct = await Product.findByIdAndUpdate(productId, { deleted: new Date() });
+    if (!deletedProduct) {
+        res.status(404);
+        throw new Error('Sản phẩm không tồn tại');
+    }
+    const deletedVariant = await Variant.updateMany({ product: productId }, { $set: { deleted: new Date() } });
+    res.status(200).json({
+        message:
+            'Xóa sản phẩm thành công. Bạn có thể khôi phục trong vòng 30 ngày trước khi sản phẩm này bị xóa hoàn toàn',
+    });
 };
 
 const productController = {
     getProductBySlug,
     getProductById,
     getProducts,
+    getProductRecommend,
     getAllProductsByAdmin,
-    getProductSearchResults,
-    reviewProduct,
     createProduct,
-    deleteProduct,
     updateProduct,
+    reviewProduct,
+    hideProduct,
+    unhideProduct,
+    restoreProduct,
+    deleteProduct,
 };
 export default productController;
