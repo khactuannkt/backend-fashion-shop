@@ -13,12 +13,7 @@ const validate = {
     ],
     createBanner: [
         check('title').trim().not().isEmpty().withMessage('Title is required'),
-        check('imageUrl').custom((imageUrl) => {
-            if (!isUrl(imageUrl)) {
-                throw new Error('URL image must be an url');
-            }
-            return true;
-        }),
+        check('imageUrl').isURL().withMessage('URL image must be an url'),
         check('role').custom((role) => {
             if (!role || role.trim() == '') {
                 throw new Error('Role is required');
@@ -47,12 +42,7 @@ const validate = {
             return true;
         }),
         check('title').trim().not().isEmpty().withMessage('Title is required'),
-        check('imageUrl').custom((imageUrl) => {
-            if (!isUrl(imageUrl)) {
-                throw new Error('URL image must be an url');
-            }
-            return true;
-        }),
+        check('imageUrl').isURL().withMessage('URL image must be an url'),
     ],
 
     //====================Validate Cart==================
@@ -120,12 +110,7 @@ const validate = {
             }
             return true;
         }),
-        check('image').custom((image) => {
-            if (!isUrl(image)) {
-                throw new Error('URL image must be an url');
-            }
-            return true;
-        }),
+        check('image').isURL().withMessage('URL image must be an url'),
     ],
     updateCategory: [
         check('id').custom((id) => {
@@ -135,12 +120,7 @@ const validate = {
             return true;
         }),
         check('name').trim().not().isEmpty().withMessage('Name is required'),
-        check('image').custom((image) => {
-            if (!isUrl(image)) {
-                throw new Error('URL image must be an url');
-            }
-            return true;
-        }),
+        check('image').isURL().withMessage('URL image must be an url'),
         check('level').custom((level) => {
             if (!level || String(level).trim() === '') {
                 throw new Error('Level is required');
@@ -434,7 +414,6 @@ const validate = {
     ],
 
     //====================Validate Product==================
-    //validate Product
     getProductById: [
         check('id').custom((id) => {
             if (!ObjectId.isValid(id)) {
@@ -591,6 +570,100 @@ const validate = {
             }
             return true;
         }),
+    ],
+    //====================Validate Order==================
+    validateOrderId: [
+        check('id').custom((id) => {
+            if (!ObjectId.isValid(id)) {
+                throw new Error('ID đơn hàng không hợp lệ');
+            }
+            return true;
+        }),
+    ],
+    getOrdersByUserId: [
+        check('userId').custom((id) => {
+            if (!ObjectId.isValid(id)) {
+                throw new Error('ID khách hàng không hợp lệ');
+            }
+            return true;
+        }),
+        check('limit').isInt({ min: 0 }).withMessage('Giới hạn phải là số nguyên và phải lớn hơn hoặc bằng 0'),
+        check('page').isInt({ min: 0 }).withMessage('Số thứ tự trang phải là số nguyên và phải lớn hơn hoặc bằng 0'),
+        check('status').isString().withMessage(' Trạng thái phải là chuỗi kí tự'),
+    ],
+
+    placeOrder: [
+        check('shippingAddress')
+            .isObject()
+            .withMessage(
+                'Địa chỉ giao hàng phải là một đối tượng gồm các tên, số điện thoại và địa chỉ của người nhận hàng',
+            )
+            .custom((shippingAddress) => {
+                if (!shippingAddress.receiver || shippingAddress.receiver.toString().trim() === '') {
+                    throw new Error('Họ tên người nhận không được để trống');
+                }
+                if (!shippingAddress.phone || shippingAddress.phone.toString().trim() === '') {
+                    throw new Error('Số điện thoại người nhận không được để trống');
+                }
+                if (!shippingAddress.province || shippingAddress.province.toString().trim() === '') {
+                    throw new Error('Tỉnh/Thành phố không được để trống');
+                }
+                if (!shippingAddress.district || shippingAddress.district.toString().trim() === '') {
+                    throw new Error('Quận/Huyện không được để trống');
+                }
+                if (!shippingAddress.ward || shippingAddress.ward.toString().trim() === '') {
+                    throw new Error('Phường/Xã không được để trống');
+                }
+                if (!shippingAddress.specificAddress || shippingAddress.specificAddress.toString().trim() === '') {
+                    throw new Error('Địa chỉ chi tiết không được để trống');
+                }
+                return true;
+            }),
+        check('paymentMethod').custom((paymentMethod) => {
+            if (!paymentMethod || paymentMethod.toString().trim() == '') {
+                throw new Error('Phương thức thanh toán là giá trị bắt buộc');
+            }
+            if (paymentMethod !== 'Payment with cash' && paymentMethod !== 'Payment with MoMo') {
+                throw new Error(' Phương thức thanh toán phải là "Payment with cash" hoặc "Payment with MoMo"');
+            }
+            return true;
+        }),
+        check('orderItems')
+            .isArray()
+            .withMessage('Danh sách các sản phẩm đặt hàng phải là mảng')
+            .notEmpty()
+            .withMessage('Danh sách các sản phẩm đặt hàng không được để trống'),
+        check('orderItems.*.variant').custom((variant) => {
+            if (!ObjectId.isValid(variant)) {
+                throw new Error(`ID biến thể sản phẩm "${variant}" không hợp lệ`);
+            }
+            return true;
+        }),
+        check('orderItems.*.quantity')
+            .notEmpty()
+            .withMessage('Số lượng sản phẩm đặt hàng không được để trống')
+            .isInt({ min: 1 })
+            .withMessage('Số lượng sản phẩm đặt hàng phải là số nguyên và phải lớn hơn 0'),
+        // check('discountCode').isString().withMessage('Mã giảm giá phải là chuỗi kí tự'),
+    ],
+    reviewProductByOrderItemId: [
+        check('id').custom((id) => {
+            if (!ObjectId.isValid(id)) {
+                throw new Error('ID đơn hàng không hợp lệ');
+            }
+            return true;
+        }),
+        check('orderItemId').custom((id) => {
+            if (!ObjectId.isValid(id)) {
+                throw new Error('ID sản phẩm trong đơn hàng không hợp lệ');
+            }
+            return true;
+        }),
+        check('rating')
+            .notEmpty()
+            .withMessage('Số sao đánh giá không được để trống')
+            .isInt({ min: 1, max: 5 })
+            .withMessage('Số sao đánh giá phải là số nguyên từ 1 đến 5'),
     ],
 };
 export default validate;

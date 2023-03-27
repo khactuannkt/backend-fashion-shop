@@ -78,6 +78,7 @@ const productSchema = mongoose.Schema(
         },
         deleted: {
             type: Date,
+            default: null,
         },
         disabled: {
             type: Boolean,

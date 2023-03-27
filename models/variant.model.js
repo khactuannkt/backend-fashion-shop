@@ -38,6 +38,7 @@ const variantSchema = mongoose.Schema(
         },
         deleted: {
             type: Date,
+            default: null,
         },
         disabled: {
             type: Boolean,

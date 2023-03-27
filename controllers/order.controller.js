@@ -4,92 +4,58 @@ import Product from '../models/product.model.js';
 import Order from '../models/order.model.js';
 import Variant from '../models/variant.model.js';
 import Cart from '../models/cart.model.js';
-import { validateStatus, validateStatusBeforeCancel } from '../utils/orderConstants.js';
+import DiscountCode from '../models/discountCode.model.js';
 import { orderQueryParams, validateConstants } from '../utils/searchConstants.js';
-
-// const placeOrder = async (req, res) => {
-//     const { orderItems, shippingAddress, paymentMethod, itemsPrice, taxPrice, shippingPrice, totalPrice, phone } =
-//         req.body;
-
-//     if (orderItems && orderItems.length === 0) {
-//         res.status(400);
-//         throw new Error('No order items');
-//     }
-//     const order = new Order({
-//         orderItems,
-//         user: req.user._id,
-//         shippingAddress,
-//         paymentMethod,
-//         itemsPrice,
-//         taxPrice,
-//         shippingPrice,
-//         totalPrice,
-//         phone,
-//     });
-//     for (let i = 0; i < orderItems.length; i++) {
-//         await Product.findOneAndUpdate({ _id: orderItems[i].product }, { $inc: { countInStock: -orderItems[i].qty } });
-//     }
-//     const createOrder = await order.save();
-//     res.status(201).json(createOrder);
-// };
-
-// const getAllOrders = async (req, res) => {
-//     const orders = await Order.find({});
-//     const products = await Product.find({}).sort({ _id: -1 });
-//     let AllOrder = [];
-//     let Arr = {};
-//     let ArrQuatity = [];
-//     for (let order of orders) {
-//         for (let ordr of order.orderItems) {
-//             AllOrder.push(ordr);
-//         }
-//     }
-//     for (let i = 0; i < AllOrder.length - 1; i++) {
-//         if (Arr[AllOrder[i].name] != undefined) Arr[AllOrder[i].name]++;
-//         else Arr[AllOrder[i].name] = 1;
-//     }
-//     let newarr = [];
-//     ArrQuatity = Object.entries(Arr).sort(function (a, b) {
-//         return b[1] - a[1];
-//     });
-//     for (let i = 0; i < ArrQuatity.length; i++) {
-//         for (let j = 0; j < products.length; j++) {
-//             if (ArrQuatity[i][0] === products[j].name) {
-//                 newarr.push(products[j]);
-//                 break;
-//             }
-//         }
-//     }
-//     res.json(newarr);
-// };
-
-// const getAllOrdersByAdmin = async (req, res) => {
-//     const orders = await Order.find({}).sort({ _id: -1 }).populate('user', 'id name email');
-//     res.json(orders);
-// };
+import { validationResult } from 'express-validator';
 
 const getOrdersByUserId = async (req, res) => {
-    const pageSize = Number(req.query.pageSize) || 20; //EDIT HERE
-    const page = Number(req.query.pageNumber) || 1;
-    const dateOrderSortBy = validateConstants(orderQueryParams, 'date', req.query.dateOrder);
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ error_message: message });
+    }
+    if (req.user.role !== 'staff' && req.user.role !== 'admin') {
+        if (req.user._id != req.params.userId) {
+            return res
+                .status(403)
+                .json({ error_message: 'Bị cấm. Bạn không thể truy cập thông tin đơn hàng của người khác.' });
+        }
+    }
+    const limit = Number(req.query.limit) || 20; //EDIT HERE
+    const page = Number(req.query.page) || 0;
+    const status = String(req.query.status) || null;
     const orderFilter = { user: req.user._id };
-    const count = await Order.countDocuments(orderFilter);
+    if (status) {
+        orderFilter.status = status;
+    }
+    const count = await Order.countDocuments({ ...orderFilter });
     const orders = await Order.find({ ...orderFilter })
-        .limit(pageSize)
-        .skip(pageSize * (page - 1))
-        .sort({ ...dateOrderSortBy });
-    res.status(200);
-    res.json({ orders, page, pages: Math.ceil(count / pageSize), totalProducts: count });
+        .limit(limit)
+        .skip(limit * page)
+        .sort({ createdAt: 'desc' });
+    res.status(200).json({ data: { orders, page, pages: Math.ceil(count / limit), total: count } });
 };
 
 const getOrderById = async (req, res) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ error_message: message });
+    }
     const order = await Order.findById(req.params.id);
     if (!order) {
         res.status(404);
-        throw new Error('Order Not Found');
+        throw new Error('Đơn hàng không tồn tại');
     }
-    res.status(200);
-    res.json(order);
+    if (req.user.role !== 'staff' && req.user.role !== 'admin') {
+        if (req.user._id !== order.user) {
+            res.status(404);
+            throw new Error('Đơn hàng không tồn tại');
+        }
+    }
+    res.status(200).json({ data: { order } });
 };
 
 const getOrders = async (req, res) => {
@@ -109,80 +75,6 @@ const getOrders = async (req, res) => {
     res.json({ orders, page, pages: Math.ceil(count / pageSize), totalOrders: count });
 };
 
-// const confirmOrderIsPaid = async (req, res) => {
-//     const order = await Order.findById(req.params.id);
-
-//     if (order) {
-//         order.isPaid = true;
-//         order.paidAt = Date.now();
-//         order.paymentResult = {
-//             id: req.body.id,
-//             status: req.body.status,
-//             update_time: req.body.update_time,
-//             email_address: req.body.email_address,
-//         };
-//         // order.orderItems.map((orderItem)=>{
-//         // const product = await Product.findById(orderItem.product);
-//         // if(product){
-//         //     product.numberOfOrder += orderItem.qty;
-//         //     const updatedProduct = await Product.save();}
-//         // })
-//         const updatedOrder = await order.save();
-//         res.json(updatedOrder);
-//     } else {
-//         res.status(404);
-//         throw new Error('Order Not Found');
-//     }
-// };
-
-// const confirmOrderIsDelivered = async (req, res) => {
-//     const order = await Order.findById(req.params.id);
-
-//     if (order) {
-//         order.isDelivered = true;
-//         order.deliveredAt = Date.now();
-
-//         const updatedOrder = await order.save();
-//         res.json(updatedOrder);
-//     } else {
-//         res.status(404);
-//         throw new Error('Order Not Found');
-//     }
-// };
-
-// const cancelOrderByAdmin = async (req, res) => {
-//     const order = await Order.findById(req.params.id);
-
-//     if (order) {
-//         if (order.isPaid != true) {
-//             order.cancel = 1;
-//             const updatedOrder = await order.save();
-//             res.json(updatedOrder);
-//         }
-//     } else {
-//         res.status(404);
-//         throw new Error('Order Not Found');
-//     }
-// };
-
-// const uncancel = async (req, res) => {
-//     const order = await Order.findById(req.params.id);
-
-//     if (order != undefined || req.user._id == order.user) {
-//         if (order.isDelivered != true) {
-//             order.cancel = 1;
-//             const updatedOrder = await order.save();
-//             res.json(updatedOrder);
-//         } else {
-//             res.status(404);
-//             throw new Error('Can not cancel');
-//         }
-//     } else {
-//         res.status(404);
-//         throw new Error('Order Not Found');
-//     }
-// };
-
 const getOrderShippingAddress = async (req, res) => {
     const order = await Order.find({ user: req.user._id });
     if (order) {
@@ -193,21 +85,64 @@ const getOrderShippingAddress = async (req, res) => {
     }
 };
 
-const createOrder = async (req, res, next) => {
-    const { orderItems, shippingAddress, paymentMethod, taxPrice, shippingPrice, totalPrice } = req.body;
-    if (orderItems && orderItems.length === 0) {
-        res.status(400);
-        throw new Error('No order items');
+const placeOrder = async (req, res, next) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ error_message: message });
     }
+    const { shippingAddress, paymentMethod, orderItems, discountCode } = req.body;
+
     const orderItemIds = [];
     orderItems.map((orderItem) => {
         orderItemIds.push(orderItem.variant);
     });
-    const cart = await Cart.findOne({ user: req.user._id });
-    if (!cart) {
-        res.status(404);
-        throw new Error('Cart not found');
+    //check the existence of product variation
+    const orderedProductList = await Variant.find({
+        _id: { $in: orderItemIds },
+        disabled: false,
+        deleted: { $eq: null },
+    });
+    if (orderItemIds.length > orderedProductList.length) {
+        res.status(400);
+        throw new Error('Danh sách sản phẩm đặt hàng có sản phẩm không tồn tại');
     }
+    let discountCodeExist = null;
+    if (discountCode) {
+        discountCodeExist = await DiscountCode.findOne({ code: discountCode.toString(), disabled: false });
+        if (!discountCodeExist) {
+            res.status(400);
+            throw new Error('Mã giảm giá không tồn tại');
+        }
+        if (discountCodeExist.startDate > new Date()) {
+            res.status(400);
+            throw new Error(`Mã giảm giá có hiệu lực từ ngày ${Date(discountCode.startDate)}`);
+        }
+        if (discountCodeExist.endDate < new Date()) {
+            res.status(400);
+            throw new Error('Mã giảm giá đã hết hạn');
+        }
+        if (!(discountCodeExist.usageLimit > discountCodeExist.used)) {
+            res.status(400);
+            throw new Error('Mã giảm giá đã được sử dụng hết');
+        }
+        if (discountCodeExist.usedBy.includes(req.user._id)) {
+            res.status(400);
+            throw new Error('Mỗi mã giảm giá chỉ được sử dụng 1 lần. Bạn đã sử dụng mã này rồi');
+        }
+        let count = 0;
+        orderedProductList.map((item) => {
+            if (discountCodeExist.applicableProducts.includes(item.product)) {
+                count++;
+            }
+        });
+        if (count == 0) {
+            res.status(400);
+            throw new Error('Mã giảm giá không được áp dụng cho các sản phẩm này');
+        }
+    }
+
     const session = await mongoose.startSession();
     const transactionOptions = {
         readPreference: 'primary',
@@ -216,83 +151,72 @@ const createOrder = async (req, res, next) => {
     };
     try {
         await session.withTransaction(async () => {
-            const order = new Order({
+            const newOrder = new Order({
                 orderItems: [],
                 user: req.user._id,
                 username: req.user.name,
                 shippingAddress,
                 paymentMethod,
-                taxPrice,
-                shippingPrice,
-                totalPrice,
-
-                status: 'Placed',
+                status: 'placed',
             });
-            let dataFilledrOrderItems = [];
-            // for (const orderItem of orderItems) {
-            //     const orderedVariant = await Variant.findOneAndUpdate(
-            //         { _id: orderItem.variant, quantity: { $gte: orderItem.quantity } },
-            //         { $inc: { quantity: -orderItem.quantity } },
-            //         { new: true },
-            //     ).session(session);
-            //     if (!orderedVariant) {
-            //         await session.abortTransaction();
-            //         res.status(400);
-            //         throw new Error('One or more product order quantity exceed available quantity');
-            //     }
-            //     const orderedProduct = await Product.findOneAndUpdate(
-            //         { _id: orderedVariant.product },
-            //         { $inc: { totalSales: +orderItem.quantity } },
-            //     ).session(session);
-            //     if (!orderedProduct) {
-            //         await session.abortTransaction();
-            //         res.status(400);
-            //         throw new Error('Variant product is not valid');
-            //     }
-            //     let dataFilledrOrderItem = {
-            //         product: orderedVariant.product,
-            //         name: orderedProduct.name,
-            //         size: orderedVariant.size,
-            //         color: orderedVariant.color,
-            //         price: orderedVariant.price,
-            //         ...orderItem,
-            //     };
-            //     dataFilledrOrderItems.push(dataFilledrOrderItem);
-            // }
+            let totalProductPrice = 0;
             const createOrderItems = orderItems.map(async (orderItem) => {
-                const orderedVariant = await Variant.findOneAndUpdate(
-                    { _id: orderItem.variant, quantity: { $gte: orderItem.quantity } },
-                    { $inc: { quantity: -orderItem.quantity } },
-                    { new: true },
-                ).session(session);
-                if (!orderedVariant) {
+                const orderedVariant = await Variant.findOne({
+                    _id: orderItem.variant,
+                    disabled: false,
+                    deleted: { $eq: null },
+                }).populate('product');
+                if (!orderedVariant || !orderedVariant.product._id) {
                     await session.abortTransaction();
                     res.status(400);
-                    throw new Error('One or more product order quantity exceed available quantity');
+                    throw new Error(`Sản phẩm có ID "${orderItem.variant}" không tồn tại`);
                 }
-                const orderedProduct = await Product.findOneAndUpdate(
-                    { _id: orderedVariant.product },
-                    { $inc: { totalSales: +orderItem.quantity, quantity: -orderItem.quantity } },
-                ).session(session);
-                if (!orderedProduct) {
+                if (orderedVariant.quantity < orderItem.quantity) {
                     await session.abortTransaction();
                     res.status(400);
-                    throw new Error('Variant product is not valid');
+                    throw new Error(
+                        `Số lượng đạt hàng của sản phẩm "${orderedVariant.product.name}" vượt quá số lượng trong kho`,
+                    );
                 }
-                let dataFilledrOrderItem = {
-                    product: orderedVariant.product,
-                    name: orderedProduct.name,
-                    image: orderedVariant.image || orderedProduct.images[0] || 'test',
-                    // size: orderedVariant.size,
-                    // color: orderedVariant.color,
+                orderedVariant.quantity -= orderItem.quantity;
+                orderedVariant.product.totalSales += orderItem.quantity;
+                orderedVariant.product.quantity -= orderItem.quantity;
+                totalProductPrice += orderedVariant.priceSale;
+                const newOrderItem = {
+                    product: orderedVariant.product._id,
+                    name: orderedVariant.product.name,
+                    image: orderedVariant.image ? orderedVariant.image : orderedVariant.product.images[0],
                     attributes: orderedVariant.attributes,
-                    price: orderedVariant.price,
-                    ...orderItem,
+                    price: orderedVariant.priceSale,
+                    quantity: orderItem.quantity,
                 };
-                dataFilledrOrderItems.push(dataFilledrOrderItem);
+                newOrder.orderItems.push(newOrderItem);
+                orderedVariant.product.save({ session });
+                orderedVariant.save({ session });
             });
             await Promise.all(createOrderItems);
-            order.orderItems = dataFilledrOrderItems;
+            newOrder.totalProductPrice = totalProductPrice;
+            newOrder.statusHistory.push({ status: 'placed' });
+            newOrder.totalDiscount = 0;
+            if (discountCodeExist) {
+                if (discountCodeExist.discountType == 'money') {
+                    newOrder.totalDiscount = discountCodeExist.discount;
+                } else {
+                    newOrder.totalDiscount = Number(
+                        ((newOrder.totalProductPrice * discountCodeExist.discount) / 100).toFixed(3),
+                    );
+                }
+            }
+
+            //temporary
+            newOrder.shippingPrice = 15000;
+
+            const totalPayment = newOrder.totalProductPrice + newOrder.shippingPrice - newOrder.totalDiscount;
+            if (totalPayment >= 0) {
+                newOrder.totalPayment = totalPayment;
+            } else {
+                newOrder.totalPayment = 0;
+            }
             const updatedCart = await Cart.findOneAndUpdate(
                 { user: req.user._id },
                 { $pull: { cartItems: { variant: { $in: orderItemIds } } } },
@@ -300,17 +224,17 @@ const createOrder = async (req, res, next) => {
             if (!updatedCart) {
                 await session.abortTransaction();
                 res.status(500);
-                throw new Error('Removing ordered items from cart failed');
+                throw new Error('Xóa sản phẩm trong giỏ hàng thất bại');
             }
-            order.statusHistory.push({ status: 'pending' });
-            const createdOrder = await order.save();
-            if (!createdOrder) {
+
+            const createOrder = await newOrder.save();
+            if (!createOrder) {
                 await session.abortTransaction();
                 res.status(500);
-                throw new Error('Encounter error while placing new order');
+                throw new Error('Gặp lỗi khi đặt hàng mới');
             }
-            res.status(201);
-            res.json(createdOrder);
+            // await session.commitTransaction();
+            res.status(201).json({ message: 'Đặt hàng thành công', data: { newOrder: createOrder } });
         }, transactionOptions);
     } catch (error) {
         next(error);
@@ -319,69 +243,205 @@ const createOrder = async (req, res, next) => {
     }
 };
 
-const updateOrderStatus = async (req, res) => {
-    const orderId = req.params.id || null;
-    const { status, description } = req.body;
+// Update: CONFIRM ORDER
+const confirmOrder = async (req, res) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ error_message: message });
+    }
+    const orderId = req.params.id;
+    const description = req.body.description.toString().trim() || '';
+    const order = await Order.findOne({ _id: orderId, disabled: false });
+    if (!order) {
+        res.status(404);
+        throw new Error('Đơn hàng không tồn tại!');
+    }
+    switch (order.status) {
+        case 'confirm':
+            res.status(400);
+            throw new Error('Đơn hàng đã được xác nhận');
+        case 'delivering':
+            res.status(400);
+            throw new Error('Đơn hàng đang ở trạng thái đang giao');
+        case 'delivered':
+            res.status(400);
+            throw new Error('Đơn hàng đã được giao thành công');
+        case 'completed':
+            res.status(400);
+            throw new Error('Đơn hàng đã được hoàn thành');
+        case 'cancelled':
+            res.status(400);
+            throw new Error('Đơn hàng đã bị hủy');
+        default:
+            break;
+    }
+    order.statusHistory.push({ status: 'confirm', description: description });
+    order.status = 'confirm';
+    const updateOrder = await order.save();
+    res.status(200).json({ message: 'Xác nhận đơn hàng thành công', data: { updateOrder } });
+};
+const confirmDelivery = async (req, res) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ error_message: message });
+    }
+    const orderId = req.params.id;
+    const description = req.body.description.toString().trim() || '';
+    const order = await Order.findOne({ _id: orderId, disabled: false });
+    if (!order) {
+        res.status(404);
+        throw new Error('Đơn hàng không tồn tại!');
+    }
+    switch (order.status) {
+        case 'placed':
+            res.status(400);
+            throw new Error('Đơn hàng chưa được xác nhận');
+        case 'delivering':
+            res.status(400);
+            throw new Error('Đơn hàng đã ở trạng thái đang giao');
+        case 'delivered':
+            res.status(400);
+            throw new Error('Đơn hàng đã được giao thành công');
+        case 'completed':
+            res.status(400);
+            throw new Error('Đơn hàng đã được hoàn thành');
+        case 'cancelled':
+            res.status(400);
+            throw new Error('Đơn hàng đã bị hủy');
+        default:
+            break;
+    }
+    order.statusHistory.push({ status: 'delivering', description: description });
+    order.status = 'delivering';
+    const updateOrder = await order.save();
+    res.status(200).json({ message: 'Xác nhận đang giao hàng thành công', data: { updateOrder } });
+};
+const confirmDelivered = async (req, res) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ error_message: message });
+    }
+    const orderId = req.params.id;
+    const description = req.body.description.toString().trim() || '';
+    const order = await Order.findOne({ _id: orderId, disabled: false });
+    if (!order) {
+        res.status(404);
+        throw new Error('Đơn hàng không tồn tại!');
+    }
+    switch (order.status) {
+        case 'placed':
+            res.status(400);
+            throw new Error('Đơn hàng chưa được xác nhận');
+        case 'confirm':
+            res.status(400);
+            throw new Error('Đơn hàng đã ở trạng thái đang giao');
+
+        case 'completed':
+            res.status(400);
+            throw new Error('Đơn hàng đã được hoàn thành');
+        case 'cancelled':
+            res.status(400);
+            throw new Error('Đơn hàng đã bị hủy');
+        default:
+            break;
+    }
+    order.statusHistory.push({ status: 'delivered', description: description });
+    order.status = 'delivered';
+    const updateOrder = await order.save();
+    res.status(200).json({ message: 'Xác nhận đã giao hàng thành công', data: { updateOrder } });
+};
+const confirmReceived = async (req, res) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ error_message: message });
+    }
+    const orderId = req.params.id;
+    const description = req.body.description.toString().trim() || '';
+    const order = await Order.findOne({ _id: orderId, disabled: false });
+    if (!order) {
+        res.status(404);
+        throw new Error('Đơn hàng không tồn tại!');
+    }
+    switch (order.status) {
+        case 'placed':
+            res.status(400);
+            throw new Error('Đơn hàng chưa được xác nhận');
+        case 'confirm':
+            res.status(400);
+            throw new Error('Đơn hàng  chỉ mới xác nhận chưa bắt đầu giao hàng');
+        case 'delivered':
+            res.status(400);
+            throw new Error('Đơn hàng đã được giao thành công');
+        case 'completed':
+            res.status(400);
+            throw new Error('Đơn hàng đã được hoàn thành');
+        case 'cancelled':
+            res.status(400);
+            throw new Error('Đơn hàng đã bị hủy');
+        default:
+            break;
+    }
+    order.statusHistory.push({ status: 'completed', description: description });
+    order.status = 'completed';
+    const updateOrder = await order.save();
+    res.status(200).json({ message: 'Xác nhận đã nhận hàng thành công', data: { updateOrder } });
+};
+const cancelOrder = async (req, res, next) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ error_message: message });
+    }
+    const orderId = req.params.id;
+    const description = req.body.description.toString().trim() || '';
     const order = await Order.findById(orderId);
     if (!order) {
         res.status(404);
-        throw new Error('Order not found');
+        throw new Error('Đơn hàng không tồn tại');
     }
-    const errorMessage = validateStatus(order, status, req.user.role);
-    if (errorMessage.length != 0) {
-        res.status(400);
-        throw new Error(errorMessage);
-    }
-    const existedStatusHistoryIndex = order.statusHistory.findLastIndex((history) => history.status == status);
-    if (existedStatusHistoryIndex == -1) {
-        order.statusHistory.push({ status: status, description: description });
-        order.status = status;
-        if (status == 'Paid') {
-            order.orderItems.map((orderItem) => {
-                orderItem.isAbleToReview = true;
-            });
-        }
-        if (status == 'Delivering') {
-            //start a cron job to automatically change the order status to "Paid" after 7 days of delivery
-            let scheduledJob = schedule.scheduleJob(
-                `* * */${process.env.AUTO_PAID_CONFIRMATION_TIME_IN_DAY} * *`,
-                // `* * */1 * *`,
-                async () => {
-                    const autoConfirmOrder = await Order.findOne({ _id: order._id, status: 'Delivering' });
-                    if (autoConfirmOrder) {
-                        autoConfirmOrder.status = 'Paid';
-                        autoConfirmOrder.statusHistory.push({ status: 'Paid', description: '' });
-                    }
-                    await autoConfirmOrder.save();
-                    scheduledJob.cancel();
-                },
-            );
+    if (req.user.role == 'admin' || req.user.role == 'staff') {
+        switch (order.status) {
+            case 'delivered':
+                res.status(400);
+                throw new Error('Đơn hàng đã được giao thành công. Không thể hủy đơn hàng');
+            case 'completed':
+                res.status(400);
+                throw new Error('Đơn hàng đã được hoàn thành. Không thể hủy đơn hàng');
+            case 'cancelled':
+                res.status(400);
+                throw new Error('Đơn hàng đã bị hủy');
+            default:
+                break;
         }
     } else {
-        if (order.status != status || order.status == 'Paid') {
-            res.status(400);
-            throw new Error(`Cannot undo status ${status} when order is ${order.status.toLowerCase()}`);
+        switch (order.status) {
+            case 'confirm':
+                res.status(400);
+                throw new Error('Đơn hàng đã được xác nhận. Không thể hủy đơn hàng');
+            case 'delivering':
+                res.status(400);
+                throw new Error('Đơn hàng đang được giao đến bạn. Không thể hủy đơn hàng');
+            case 'delivered':
+                res.status(400);
+                throw new Error('Đơn hàng đã được giao thành công. Không thể hủy đơn hàng');
+            case 'completed':
+                res.status(400);
+                throw new Error('Đơn hàng đã được hoàn thành. Không thể hủy đơn hàng');
+            case 'cancelled':
+                res.status(400);
+                throw new Error('Đơn hàng đã bị hủy');
+            default:
+                break;
         }
-        order.statusHistory.splice(existedStatusHistoryIndex);
-        order.status = order.statusHistory[order.statusHistory.length - 1].status;
-    }
-    await order.save();
-    res.status(200);
-    res.json({ message: 'Order status is updated' });
-};
-
-const cancelOrder = async (req, res, next) => {
-    const orderId = req.params.id || null;
-    const { description } = req.body;
-    const order = await Order.findById(orderId);
-    if (!order) {
-        res.status(404);
-        throw new Error('Order not found');
-    }
-    const errorMessage = validateStatusBeforeCancel(order, req.user.role);
-    if (errorMessage.length != 0) {
-        res.status(400);
-        throw new Error(errorMessage);
     }
     const session = await mongoose.startSession();
     const transactionOptions = {
@@ -399,19 +459,18 @@ const cancelOrder = async (req, res, next) => {
                 ).session(session);
                 await Product.findOneAndUpdate(
                     { _id: returnedVariant.product },
-                    { $inc: { totalSales: -orderItem.quantity } },
+                    { $inc: { totalSales: -orderItem.quantity, quantity: +orderItem.quantity } },
                 ).session(session);
             }
-            order.status = 'Cancelled';
-            order.statusHistory.push({ status: 'Cancelled', description: description });
+            order.status = 'cancelled';
+            order.statusHistory.push({ status: 'cancelled', description: description });
             const cancelledOrder = await order.save();
             if (!cancelledOrder) {
                 await session.abortTransaction();
                 res.status(500);
-                throw new Error('Encounter error while cancelling order');
+                throw new Error('Gặp lỗi khi hủy đơn hàng');
             }
-            res.status(200);
-            res.json({ message: 'Cancel order successfully' });
+            res.status(200).json({ message: 'Hủy đơn hàng thành công' });
         }, transactionOptions);
     } catch (error) {
         next(error);
@@ -420,70 +479,16 @@ const cancelOrder = async (req, res, next) => {
     }
 };
 
-const reviewProductByOrderItemId = async (req, res) => {
-    const { rating, comment } = req.body;
-    const orderId = req.params.id || null;
-    const orderItemId = req.params.orderItemId || null;
-    const productId = req.params.productId || null;
-    const findOrder = Order.findOne({
-        _id: orderId,
-        orderItems: {
-            $elemMatch: { _id: orderItemId, product: productId, isAbleToReview: true },
-        },
-    });
-    const findProduct = Product.findById(productId);
-    const [order, product] = await Promise.all([findOrder, findProduct]);
-    if (!order) {
-        res.status(404);
-        throw new Error('Order not found');
-    }
-    if (!product) {
-        res.status(404);
-        throw new Error('Product not found');
-    }
-    const review = {
-        name: req.user.name,
-        rating: Number(rating),
-        comment: comment,
-        user: req.user._id,
-    };
-    product.reviews.push(review);
-    product.rating =
-        product.reviews.reduce((previousValue, curentReview) => curentReview.rating + previousValue, 0) /
-        product.reviews.length;
-    const reviewOrderIndex = order.orderItems.findIndex((orderItem) => {
-        return orderItem._id.toString() == orderItemId.toString();
-    });
-    if (reviewOrderIndex != -1) {
-        order.orderItems[reviewOrderIndex].isAbleToReview = false;
-        await Promise.all([product.save(), order.save()]);
-    } else {
-        await product.save();
-    }
-    res.status(201);
-    res.json({ message: 'Added review' });
-};
-
-Array.prototype.findLastIndex = function (callbackFn) {
-    let lastIndex = -1;
-    for (let i = this.length - 1; i >= 0; i--) {
-        if (callbackFn(this[i])) {
-            lastIndex = i;
-            break;
-        }
-    }
-    return lastIndex;
-};
-
 const orderController = {
-    createOrder,
-    getOrderById,
     getOrdersByUserId,
+    getOrderById,
     getOrders,
-    getOrderShippingAddress,
-    updateOrderStatus,
+    placeOrder,
+    confirmOrder,
+    confirmDelivery,
+    confirmDelivered,
+    confirmReceived,
     cancelOrder,
-    reviewProductByOrderItemId,
 };
 
 export default orderController;

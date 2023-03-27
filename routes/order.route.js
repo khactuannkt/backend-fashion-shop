@@ -2,21 +2,48 @@ import express from 'express';
 import asyncHandler from 'express-async-handler';
 import { auth, protect } from '../middleware/auth.middleware.js';
 import orderController from '../controllers/order.controller.js';
+import validate from '../middleware/validate.middleware.js';
 
 const orderRouter = express.Router();
 
+orderRouter.get(
+    '/ordered/:userId',
+    validate.getOrdersByUserId,
+    protect,
+    asyncHandler(orderController.getOrdersByUserId),
+);
+orderRouter.get('/:id', validate.validateOrderId, protect, asyncHandler(orderController.getOrderById));
 orderRouter.get('/', protect, auth('staff', 'admin'), asyncHandler(orderController.getOrders));
-orderRouter.get('/:id', protect, asyncHandler(orderController.getOrderById));
-orderRouter.get('/user/:userId', protect, asyncHandler(orderController.getOrdersByUserId));
-orderRouter.post('/', protect, auth('customer'), asyncHandler(orderController.createOrder));
-orderRouter.patch('/:id', protect, asyncHandler(orderController.updateOrderStatus));
-orderRouter.patch('/:id/payment', protect, asyncHandler(orderController.orderPayment));
-orderRouter.patch('/:id/cancel', protect, asyncHandler(orderController.cancelOrder));
+orderRouter.post('/', validate.placeOrder, protect, auth('user'), asyncHandler(orderController.placeOrder));
+orderRouter.patch(
+    '/:id/confirm',
+    validate.validateOrderId,
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(orderController.confirmOrder),
+);
+orderRouter.patch(
+    '/:id/delivery',
+    validate.validateOrderId,
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(orderController.confirmDelivery),
+);
+orderRouter.patch(
+    '/:id/delivered',
+    validate.validateOrderId,
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(orderController.confirmDelivered),
+);
+orderRouter.patch(
+    '/:id/received',
+    validate.validateOrderId,
+    protect,
+    auth('user'),
+    asyncHandler(orderController.confirmReceived),
+);
+orderRouter.patch('/:id/payment', validate.validateOrderId, protect, asyncHandler(orderController.orderPayment));
+orderRouter.patch('/:id/cancel', validate.validateOrderId, protect, asyncHandler(orderController.cancelOrder));
 
-// orderRouter.post(
-//     '/:id/orderItem/:orderItemId/product/:productId',
-//     protect,
-//     auth('customer'),
-//     asyncHandler(orderController.reviewProductByOrderItemId),
-// );
 export default orderRouter;

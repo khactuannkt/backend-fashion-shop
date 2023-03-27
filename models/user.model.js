@@ -28,8 +28,8 @@ const userSchema = mongoose.Schema(
         role: {
             type: String,
             required: true,
-            enum: ['admin', 'staff', 'customer'],
-            default: 'customer',
+            enum: ['admin', 'staff', 'user'],
+            default: 'user',
         },
         avatar: {
             type: String,

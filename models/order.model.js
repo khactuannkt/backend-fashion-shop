@@ -5,7 +5,7 @@ const orderStatus = mongoose.Schema(
         status: {
             type: String,
             required: true,
-            enum: ['placed', 'confirm', 'delivering', 'paid', 'delivered', 'cancelled', 'completed'],
+            enum: ['placed', 'confirm', 'delivering', 'delivered', 'cancelled', 'completed'],
             default: 'placed',
         },
         description: {
@@ -41,14 +41,6 @@ const orderItem = mongoose.Schema({
         type: Number,
         required: true,
     },
-    // size: {
-    //     type: String,
-    //     required: true,
-    // },
-    // color: {
-    //     type: String,
-    //     required: true,
-    // },
     attributes: [
         {
             name: { type: String, required: true },
@@ -78,25 +70,29 @@ const orderSchema = mongoose.Schema(
         },
         orderItems: [orderItem],
         shippingAddress: {
+            receiver: {
+                type: String,
+                required: true,
+            },
             phone: {
                 type: String,
                 required: true,
             },
-            address: {
+            province: {
                 type: String,
-                required: true,
+                default: '',
             },
-            city: {
+            district: {
                 type: String,
-                required: true,
+                default: '',
             },
-            zipCode: {
+            ward: {
                 type: String,
-                required: false,
+                default: '',
             },
-            country: {
+            specificAddress: {
                 type: String,
-                required: true,
+                default: '',
             },
         },
         paymentMethod: {
@@ -105,28 +101,31 @@ const orderSchema = mongoose.Schema(
             enum: ['Payment with cash', 'Payment with MoMo'],
             default: 'Payment with cash',
         },
-        taxPrice: {
-            type: Number,
-            required: true,
-            default: 0.0,
-        },
+        // taxPrice: {
+        //     type: Number,
+        //     required: true,
+        //     default: 0.0,
+        // },
         shippingPrice: {
             type: Number,
             required: true,
             default: 0.0,
         },
-        discountCode: [
-            {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: 'DiscountCode',
-            },
-        ],
+        discountCode: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'DiscountCode',
+        },
         totalDiscount: {
             type: Number,
             required: true,
             default: 0,
         },
-        totalPrice: {
+        totalProductPrice: {
+            type: Number,
+            required: true,
+            default: 0.0,
+        },
+        totalPayment: {
             type: Number,
             required: true,
             default: 0.0,

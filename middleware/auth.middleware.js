@@ -49,7 +49,7 @@ const auth =
             next();
         } else {
             res.status(403);
-            throw new Error("Forbidden: You don't have permission to access this resource.");
+            throw new Error('Forbidden');
         }
     };
 export { protect, auth };

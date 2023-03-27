@@ -23,7 +23,7 @@ productRouter.post(
     '/:id/review',
     validate.review,
     protect,
-    auth('customer'),
+    auth('user'),
     asyncHandler(productController.reviewProduct),
 );
 productRouter.put(
