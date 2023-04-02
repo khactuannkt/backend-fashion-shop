@@ -7,19 +7,22 @@ import Cart from '../models/cart.model.js';
 import DiscountCode from '../models/discountCode.model.js';
 import { orderQueryParams, validateConstants } from '../utils/searchConstants.js';
 import { validationResult } from 'express-validator';
+import createRequestBody from '../utils/payment-with-momo.js';
+import axios from 'axios';
+import Payment from '../models/payment.model.js';
 
 const getOrdersByUserId = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ error_message: message });
+        return res.status(400).json({ message: message });
     }
     if (req.user.role !== 'staff' && req.user.role !== 'admin') {
         if (req.user._id != req.params.userId) {
             return res
                 .status(403)
-                .json({ error_message: 'Bị cấm. Bạn không thể truy cập thông tin đơn hàng của người khác.' });
+                .json({ message: 'Bị cấm. Bạn không thể truy cập thông tin đơn hàng của người khác.' });
         }
     }
     const limit = Number(req.query.limit) || 20; //EDIT HERE
@@ -42,7 +45,7 @@ const getOrderById = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ error_message: message });
+        return res.status(400).json({ message: message });
     }
     const order = await Order.findById(req.params.id);
     if (!order) {
@@ -90,7 +93,7 @@ const placeOrder = async (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ error_message: message });
+        return res.status(400).json({ message: message });
     }
     const { shippingAddress, paymentMethod, orderItems, discountCode } = req.body;
 
@@ -156,7 +159,6 @@ const placeOrder = async (req, res, next) => {
                 user: req.user._id,
                 username: req.user.name,
                 shippingAddress,
-                paymentMethod,
                 status: 'placed',
             });
             let totalProductPrice = 0;
@@ -175,7 +177,7 @@ const placeOrder = async (req, res, next) => {
                     await session.abortTransaction();
                     res.status(400);
                     throw new Error(
-                        `Số lượng đạt hàng của sản phẩm "${orderedVariant.product.name}" vượt quá số lượng trong kho`,
+                        `Số lượng đặt hàng của sản phẩm "${orderedVariant.product.name}" vượt quá số lượng trong kho`,
                     );
                 }
                 orderedVariant.quantity -= orderItem.quantity;
@@ -226,14 +228,57 @@ const placeOrder = async (req, res, next) => {
                 res.status(500);
                 throw new Error('Xóa sản phẩm trong giỏ hàng thất bại');
             }
+            const newPaymentInformation = new Payment({
+                user: req.user._id,
+                order: newOrder._id,
+                paymentAmount: newOrder.totalPayment,
+            });
 
-            const createOrder = await newOrder.save();
+            newOrder.paymentInformation = newPaymentInformation._id;
+
+            if (paymentMethod == 'payment-with-momo') {
+                newPaymentInformation.paymentMethod = 'payment-with-momo';
+                //Create payment information
+                const redirectUrl = `${process.env.CLIENT_PAGE_URL}/order/${newOrder._id}`;
+                const ipnUrl = `${process.env.API_URL}/api/v1/orders/${newOrder._id}/payment-notification`;
+                const { requestBody, signature } = createRequestBody(
+                    newOrder._id,
+                    'Thanh toán đơn hàng tại Fashtion Shop',
+                    newOrder.totalPayment,
+                    redirectUrl,
+                    ipnUrl,
+                );
+                const config = {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Content-Length': Buffer.byteLength(requestBody),
+                    },
+                };
+                const { data } = await axios.post(
+                    'https://test-payment.momo.vn/v2/gateway/api/create',
+                    requestBody,
+                    config,
+                );
+                if (data.resultCode == 0) {
+                    newPaymentInformation.payUrl = data.payUrl;
+                    newPaymentInformation.signature = signature;
+                }
+            } else {
+                newPaymentInformation.paymentMethod = 'payment-with-cash';
+            }
+            const createOrderPaymentInformation = await newPaymentInformation.save({ session });
+            if (!createOrderPaymentInformation) {
+                await session.abortTransaction();
+                res.status(500);
+                throw new Error('Gặp lỗi khi tạo thông tin thanh toán');
+            }
+            const createOrder = await newOrder.save({ session });
             if (!createOrder) {
                 await session.abortTransaction();
                 res.status(500);
                 throw new Error('Gặp lỗi khi đặt hàng mới');
             }
-            // await session.commitTransaction();
+            createOrder.paymentInformation = createOrderPaymentInformation;
             res.status(201).json({ message: 'Đặt hàng thành công', data: { newOrder: createOrder } });
         }, transactionOptions);
     } catch (error) {
@@ -249,7 +294,7 @@ const confirmOrder = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ error_message: message });
+        return res.status(400).json({ message: message });
     }
     const orderId = req.params.id;
     const description = req.body.description.toString().trim() || '';
@@ -287,7 +332,7 @@ const confirmDelivery = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ error_message: message });
+        return res.status(400).json({ message: message });
     }
     const orderId = req.params.id;
     const description = req.body.description.toString().trim() || '';
@@ -325,7 +370,7 @@ const confirmDelivered = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ error_message: message });
+        return res.status(400).json({ message: message });
     }
     const orderId = req.params.id;
     const description = req.body.description.toString().trim() || '';
@@ -361,7 +406,7 @@ const confirmReceived = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ error_message: message });
+        return res.status(400).json({ message: message });
     }
     const orderId = req.params.id;
     const description = req.body.description.toString().trim() || '';
@@ -394,12 +439,86 @@ const confirmReceived = async (req, res) => {
     const updateOrder = await order.save();
     res.status(200).json({ message: 'Xác nhận đã nhận hàng thành công', data: { updateOrder } });
 };
+
+const orderPaymentNotification = async (req, res) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ message: message });
+    }
+    const orderId = req.params.id;
+    const order = await Order.findOne({ _id: orderId, disabled: false }).populate('paymentInformation');
+    if (!order) {
+        res.status(404);
+        throw new Error('Đơn hàng không tồn tại!');
+    }
+    if (order.signature !== req.body.signature) {
+        res.status(400);
+        throw new Error('Chữ ký không hợp lệ');
+    }
+    order.paymentInformation.paid = true;
+    order.paymentInformation.paidAt = new Date();
+    order.paymentInformation.save();
+    res.status(204);
+};
+
+const userPaymentOrder = async (req, res) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ message: message });
+    }
+    const orderId = req.params.id;
+    const order = await Order.findOne({ _id: orderId, user: req.user._id, disabled: false }).populate(
+        'paymentInformation',
+    );
+    if (!order) {
+        res.status(404);
+        throw new Error('Đơn hàng không tồn tại!');
+    }
+    if (order.paymentInformation.paid == true) {
+        res.status(400);
+        throw new Error('Đơn hàng đã hoàn thành việc thanh toán');
+    }
+    if (order.paymentInformation.paymentMethod == 'payment-with-momo') {
+        const payUrl = order.paymentInformation.payUrl;
+        res.status(200).json({ data: { payUrl } });
+    } else {
+        res.status(400);
+        throw new Error('Đơn hàng có phương thức thanh toán không phải là thanh toán online');
+    }
+};
+
+const adminPaymentOrder = async (req, res) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ message: message });
+    }
+    const orderId = req.params.id;
+    const order = await Order.findOne({ _id: orderId, disabled: false }).populate('paymentInformation');
+    if (!order) {
+        res.status(404);
+        throw new Error('Đơn hàng không tồn tại!');
+    }
+    if (order.paymentInformation.paid == true) {
+        res.status(400);
+        throw new Error('Đơn hàng đã hoàn thành việc thanh toán');
+    }
+    order.paymentInformation.paid = true;
+    order.paymentInformation.paidAt = new Date();
+    res.status(200).json({ message: 'Xác nhận thanh toán đơn hàng thành công', data: { order } });
+};
+
 const cancelOrder = async (req, res, next) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ error_message: message });
+        return res.status(400).json({ message: message });
     }
     const orderId = req.params.id;
     const description = req.body.description.toString().trim() || '';
@@ -488,6 +607,9 @@ const orderController = {
     confirmDelivery,
     confirmDelivered,
     confirmReceived,
+    orderPaymentNotification,
+    userPaymentOrder,
+    adminPaymentOrder,
     cancelOrder,
 };
 

@@ -15,6 +15,11 @@ orderRouter.get(
 orderRouter.get('/:id', validate.validateOrderId, protect, asyncHandler(orderController.getOrderById));
 orderRouter.get('/', protect, auth('staff', 'admin'), asyncHandler(orderController.getOrders));
 orderRouter.post('/', validate.placeOrder, protect, auth('user'), asyncHandler(orderController.placeOrder));
+orderRouter.post(
+    '/:id/payment-notification',
+    validate.validateOrderId,
+    asyncHandler(orderController.orderPaymentNotification),
+);
 orderRouter.patch(
     '/:id/confirm',
     validate.validateOrderId,
@@ -43,7 +48,20 @@ orderRouter.patch(
     auth('user'),
     asyncHandler(orderController.confirmReceived),
 );
-orderRouter.patch('/:id/payment', validate.validateOrderId, protect, asyncHandler(orderController.orderPayment));
+orderRouter.patch(
+    '/:id/payment',
+    validate.validateOrderId,
+    protect,
+    auth('user'),
+    asyncHandler(orderController.userPaymentOrder),
+);
+orderRouter.patch(
+    '/:id/confirm-payment',
+    validate.validateOrderId,
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(orderController.adminPaymentOrder),
+);
 orderRouter.patch('/:id/cancel', validate.validateOrderId, protect, asyncHandler(orderController.cancelOrder));
 
 export default orderRouter;

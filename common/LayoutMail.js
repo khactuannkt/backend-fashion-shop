@@ -96,14 +96,14 @@ export const htmlMailVerify = (
                                                                 <tr>
                                                                     <td align="center">
                                                                         <a
-                                                                            href="${process.env.USER_PAGE_URL}register/confirm?emailVerificationToken=${emailVerificationToken}"
+                                                                            href="${process.env.CLIENT_PAGE_URL}/register/confirm?emailVerificationToken=${emailVerificationToken}"
                                                                             style="
                                                                                 display: inline-block;
                                                                                 text-decoration: none;
                                                                                 width: 159px;
                                                                             "
                                                                             target="_blank"
-                                                                            data-saferedirecturl="${process.env.USER_PAGE_URL}register/confirm?emailVerificationToken=${emailVerificationToken}"
+                                                                            data-saferedirecturl="${process.env.CLIENT_PAGE_URL}/register/confirm?emailVerificationToken=${emailVerificationToken}"
                                                                             ><div
                                                                                 style="
                                                                                     font-family: Helvetica, Arial,
@@ -146,10 +146,10 @@ export const htmlMailVerify = (
                                                                 verification<br />
                                                                 link, please
                                                                 <a
-                                                                    href="${process.env.USER_PAGE_URL}login"
+                                                                    href="${process.env.CLIENT_PAGE_URL}/login"
                                                                     style="text-decoration: none; color: #007cad"
                                                                     target="_blank"
-                                                                    data-saferedirecturl="${process.env.USER_PAGE_URL}login"
+                                                                    data-saferedirecturl="${process.env.CLIENT_PAGE_URL}/login"
                                                                     >log in</a
                                                                 >
                                                                 to prompt a re-send link.

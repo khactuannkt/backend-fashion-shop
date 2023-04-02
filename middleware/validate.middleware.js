@@ -306,10 +306,14 @@ const validate = {
             .not()
             .isEmpty()
             .withMessage('Mật khẩu không được để trống')
-            .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*d)(?=.*[@$!%*?&])[A-Za-zd@$!%*?&]{8,255}$/)
-            .withMessage(
-                'Mật khẩu phải từ 8 - 255 ký tự, ít nhất 1 chữ hoa, 1 chữ thường, 1 số, 1 ký tự đặc biệt và không có khoảng trắng',
-            ),
+            .matches(/^(?=.*[A-Za-z])(?=.*\d)[^\s]{6,255}$/)
+            .withMessage('Mật khẩu phải từ 6 - 255 ký tự, ít nhất 1 chữ cái, 1 chữ số và không có khoảng trắng'),
+        check('confirmPassword').custom((confirmPassword, { req }) => {
+            if (confirmPassword !== req.body.password) {
+                throw new Error('Xác nhận mật khẩu không khớp');
+            }
+            return true;
+        }),
     ],
     login: [
         check('email')
@@ -384,21 +388,18 @@ const validate = {
             .withMessage('Địa chỉ email không hợp lệ'),
     ],
     resetPassword: [
-        // check('email')
-        //     .trim()
-        //     .not()
-        //     .isEmpty()
-        //     .withMessage('Email không được để trống')
-        //     .isEmail()
-        //     .withMessage('Địa chỉ email không hợp lệ'),
         check('newPassword')
             .not()
             .isEmpty()
             .withMessage('Mật khẩu không được để trống')
-            .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*d)(?=.*[@$!%*?&])[A-Za-zd@$!%*?&]{8,255}$/)
-            .withMessage(
-                'Mật khẩu phải từ 8 - 255 ký tự, ít nhất 1 chữ hoa, 1 chữ thường, 1 số, 1 ký tự đặc biệt và không có khoảng trắng',
-            ),
+            .matches(/^(?=.*[A-Za-z])(?=.*\d)[^\s]{6,255}$/)
+            .withMessage('Mật khẩu phải từ 6 - 255 ký tự, ít nhất 1 chữ cái, 1 chữ số và không có khoảng trắng'),
+        check('confirmPassword').custom((confirmPassword, { req }) => {
+            if (confirmPassword !== req.body.password) {
+                throw new Error('Xác nhận mật khẩu không khớp');
+            }
+            return true;
+        }),
         check('resetPasswordToken').not().isEmpty().withMessage('Token đặt lại mật khẩu không hợp lệ'),
     ],
     changePassword: [
@@ -623,8 +624,8 @@ const validate = {
             if (!paymentMethod || paymentMethod.toString().trim() == '') {
                 throw new Error('Phương thức thanh toán là giá trị bắt buộc');
             }
-            if (paymentMethod !== 'Payment with cash' && paymentMethod !== 'Payment with MoMo') {
-                throw new Error(' Phương thức thanh toán phải là "Payment with cash" hoặc "Payment with MoMo"');
+            if (paymentMethod !== 'payment-with-cash' && paymentMethod !== 'payment-with-momo') {
+                throw new Error(' Phương thức thanh toán phải là "payment-with-cash" hoặc "payment-with-momo"');
             }
             return true;
         }),

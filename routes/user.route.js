@@ -9,7 +9,7 @@ const userRouter = express.Router();
 userRouter.get('/profile', protect, asyncHandler(userController.getProfile));
 userRouter.get('/', protect, auth('staff', 'admin'), asyncHandler(userController.getUsersByAdmin));
 userRouter.post('/login', validate.login, asyncHandler(userController.login));
-userRouter.post('/refresh-token', validate.login, asyncHandler(userController.login));
+userRouter.post('/refresh-token', asyncHandler(userController.refreshToken));
 userRouter.post('/register', validate.register, asyncHandler(userController.register));
 userRouter.put('/profile', validate.updateProfile, protect, asyncHandler(userController.updateProfile));
 userRouter.patch('/auth/verify-email', asyncHandler(userController.verifyEmail));

@@ -6,16 +6,16 @@ const notFound = (req, res, next) => {
 
 const errorHandler = (err, req, res, next) => {
     const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
-    const error_message = err.message || 'Something went wrong';
+    const message = err.message || 'Something went wrong';
     if (statusCode == 500) {
         console.log(err?.stack);
         res.status(500).json({
-            error_message: 'Internal server error',
+            message: 'Internal server error',
             stack: process.env.NODE_ENV === 'production' ? null : err?.stack,
         });
     } else {
         res.status(statusCode).json({
-            error_message: error_message,
+            message: message,
             stack: process.env.NODE_ENV === 'production' ? {} : err?.stack,
         });
     }

@@ -95,17 +95,16 @@ const orderSchema = mongoose.Schema(
                 default: '',
             },
         },
-        paymentMethod: {
-            type: String,
-            required: true,
-            enum: ['Payment with cash', 'Payment with MoMo'],
-            default: 'Payment with cash',
-        },
-        // taxPrice: {
-        //     type: Number,
+        // paymentMethod: {
+        //     type: String,
         //     required: true,
-        //     default: 0.0,
+        //     enum: ['payment-with-cash', 'payment-with-momo'],
+        //     default: 'payment-with-cash',
         // },
+        paymentInformation: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Payment',
+        },
         shippingPrice: {
             type: Number,
             required: true,

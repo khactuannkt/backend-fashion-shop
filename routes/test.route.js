@@ -10,6 +10,8 @@ import Cart from '../models/cart.model.js';
 import Product from '../models/product.model.js';
 import Variant from '../models/variant.model.js';
 
+import createRequestBody from '../utils/payment-with-momo.js';
+import axios from 'axios';
 /* dotenv.config();
 
 cloudinary.config({
@@ -24,6 +26,23 @@ const multerUpload = multer({}); */
 //const upload = multer();
 
 const testRouter = express.Router();
+
+testRouter.post(
+    '/payment',
+    asyncHandler(async (req, res, next) => {
+        const requestBody = createRequestBody('order-id', '100000', 'https://localhost:3000', 'https://localhost:3000');
+        console.log(requestBody);
+        const config = {
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(requestBody),
+            },
+        };
+        const { data } = await axios.post('https://test-payment.momo.vn/v2/gateway/api/create', requestBody, config);
+        console.log(data);
+        res.status(200).json(data);
+    }),
+);
 
 testRouter.post(
     '/send-mail',

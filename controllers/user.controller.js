@@ -9,12 +9,13 @@ import generateAuthToken from '../utils/generateToken.js';
 import { htmlMailVerify, htmlResetEmail } from '../common/LayoutMail.js';
 import image from '../assets/images/index.js';
 import { validationResult } from 'express-validator';
+import jwt from 'jsonwebtoken';
 
 dotenv.config();
 
-const getUsersByAdmin = async (res) => {
+const getUsersByAdmin = async (req, res) => {
     const users = await User.find();
-    res.json({ data: { users } });
+    res.status(200).json({ data: { users } });
 };
 
 const login = async (req, res) => {
@@ -22,7 +23,7 @@ const login = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ error_message: message });
+        return res.status(400).json({ message: message });
     }
 
     const { email, password } = req.body;
@@ -49,14 +50,14 @@ const login = async (req, res) => {
             updatedAt: user.updatedAt,
         };
         const generateToken = generateAuthToken(user._id);
-        const newToken = await new Token({
-            user: user._id,
-            ...generateToken,
-        }).save();
-        if (!newToken) {
-            res.status(500);
-            throw new Error('Authentication token generation failed');
-        }
+        // const newToken = await new Token({
+        //     user: user._id,
+        //     ...generateToken,
+        // }).save();
+        // if (!newToken) {
+        //     res.status(500);
+        //     throw new Error('Authentication token generation failed');
+        // }
         res.status(200).json({
             data: {
                 user: userData,
@@ -68,13 +69,37 @@ const login = async (req, res) => {
         throw new Error('Email hoặc mật khẩu sai');
     }
 };
-
+const refreshToken = async (req, res) => {
+    const refreshToken = req.body.refreshToken.toString().trim() || '';
+    if (!refreshToken || refreshToken == '') {
+        res.status(401);
+        throw new Error('Not authorized, no token');
+    }
+    try {
+        const decoded = jwt.verify(refreshToken, process.env.REFRESH_JWT_SECRET);
+        const userId = decoded._id || null;
+        const user = await User.findOne({ _id: userId, isVerified: true }).select('-password');
+        if (!user) {
+            res.status(401);
+            throw new Error('Not authorized, token failed');
+        }
+        const generateToken = generateAuthToken(user._id);
+        res.status(200).json({
+            data: {
+                ...generateToken,
+            },
+        });
+    } catch (error) {
+        res.status(401);
+        throw new Error('Not authorized, token failed');
+    }
+};
 const register = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ error_message: message });
+        return res.status(400).json({ message: message });
     }
 
     const { name, phone, password } = req.body;
@@ -93,7 +118,7 @@ const register = async (req, res) => {
     });
     const emailVerificationToken = user.getEmailVerificationToken();
     await user.save();
-    const url = `${process.env.USER_PAGE_URL}register/confirm?emailVerificationToken=${emailVerificationToken}`;
+    const url = `${process.env.CLIENT_PAGE_URL}/register/confirm?emailVerificationToken=${emailVerificationToken}`;
     const html = htmlMailVerify(emailVerificationToken);
 
     //start cron-job
@@ -195,7 +220,7 @@ const forgotPassword = async (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ error_message: message });
+        return res.status(400).json({ message: message });
     }
     const { email } = req.body;
     const user = await User.findOne({ email, isVerified: true });
@@ -210,7 +235,7 @@ const forgotPassword = async (req, res, next) => {
     await user.save();
 
     // Send reset password email
-    const resetPasswordUrl = `${process.env.CLIENT_PAGE_URL}reset?resetPasswordToken=${resetPasswordToken}`;
+    const resetPasswordUrl = `${process.env.CLIENT_PAGE_URL}/reset?resetPasswordToken=${resetPasswordToken}`;
     const html = htmlResetEmail({ link: resetPasswordUrl, email, urlLogo: image.logo });
 
     // Set up message options
@@ -232,7 +257,7 @@ const resetPassword = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ error_message: message });
+        return res.status(400).json({ message: message });
     }
     const { newPassword } = req.body;
     const { resetPasswordToken } = req.query;
@@ -321,7 +346,7 @@ const updateProfile = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ error_message: message });
+        return res.status(400).json({ message: message });
     }
 
     const user = await User.findById(req.user._id);
@@ -362,7 +387,7 @@ const changePassword = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ error_message: message });
+        return res.status(400).json({ message: message });
     }
     const { currentPassword, newPassword } = req.body;
 
@@ -396,6 +421,7 @@ const changePassword = async (req, res) => {
 
 const userController = {
     login,
+    refreshToken,
     register,
     getProfile,
     updateProfile,

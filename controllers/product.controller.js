@@ -10,6 +10,7 @@ import { validationResult } from 'express-validator';
 import slug from 'slug';
 import difference from 'lodash.difference';
 import differenceBy from 'lodash.differenceby';
+import { url } from 'inspector';
 
 const getProducts = async (req, res) => {
     // const limit = Number(req.query.limit) || 12;
@@ -131,7 +132,7 @@ const getProductById = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ error_message: message });
+        return res.status(400).json({ message: message });
     }
     const product = await Product.findById(req.params.id).populate('variants');
     if (!product) {
@@ -146,7 +147,7 @@ const createProduct = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ error_message: message });
+        return res.status(400).json({ message: message });
     }
     let { name, description, category, brand, keywords, variants } = req.body;
 
@@ -234,7 +235,7 @@ const updateProduct = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ error_message: message });
+        return res.status(400).json({ message: message });
     }
 
     const { name, description, category, images, brand, keywords, variants } = req.body;
@@ -301,15 +302,15 @@ const updateProduct = async (req, res) => {
     //update variant
     //update current variants
     const oldVariants = currentProduct.variants;
-    const variantUpdates = variants.map((variant) => {
+    const variantUpdates = variants.map(async (variant) => {
         if (currentProduct.variants.indexOf(variant._id) != -1) {
-            return Variant.findByIdAndUpdate(variant._id, { ...variant }, { new: true });
+            return await Variant.findByIdAndUpdate(variant._id, { ...variant }, { new: true });
         } else {
             const newVariant = new Variant({
                 product: currentProduct._id,
                 ...variant,
             });
-            return newVariant.save();
+            return await newVariant.save();
         }
     });
     const updateVariants = await Promise.all(variantUpdates);
@@ -357,7 +358,7 @@ const reviewProduct = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ error_message: message });
+        return res.status(400).json({ message: message });
     }
 
     const { rating, comment } = req.body;
@@ -403,7 +404,7 @@ const hideProduct = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ error_message: message });
+        return res.status(400).json({ message: message });
     }
     const productId = req.params.id || null;
     const disabledProduct = await Product.findIdAndUpdate({ _id: productId }, { disabled: true });
@@ -420,7 +421,7 @@ const unhideProduct = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ error_message: message });
+        return res.status(400).json({ message: message });
     }
     const productId = req.params.id || null;
     const disabledProduct = await Product.findIdAndUpdate({ _id: productId }, { disabled: false });
@@ -437,7 +438,7 @@ const restoreProduct = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ error_message: message });
+        return res.status(400).json({ message: message });
     }
     const productId = req.params.id || null;
     const deletedProduct = await Product.findByIdAndUpdate(productId, { deleted: null });
@@ -455,7 +456,7 @@ const deleteProduct = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         const message = errors.array()[0].msg;
-        return res.status(400).json({ error_message: message });
+        return res.status(400).json({ message: message });
     }
     const productId = req.params.id || null;
     const deletedProduct = await Product.findByIdAndUpdate(productId, { deleted: new Date() });
