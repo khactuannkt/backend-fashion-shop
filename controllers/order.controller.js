@@ -243,7 +243,7 @@ const placeOrder = async (req, res, next) => {
                 const ipnUrl = `${process.env.API_URL}/api/v1/orders/${newOrder._id}/payment-notification`;
                 const { requestBody, signature } = createRequestBody(
                     newOrder._id,
-                    'Thanh toán đơn hàng tại Fashtion Shop',
+                    'Thanh toán đơn hàng tại Fashion Shop',
                     newOrder.totalPayment,
                     redirectUrl,
                     ipnUrl,
@@ -444,6 +444,7 @@ const orderPaymentNotification = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+        console.log(errors.array()[0]);
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
@@ -451,9 +452,13 @@ const orderPaymentNotification = async (req, res) => {
     const order = await Order.findOne({ _id: orderId, disabled: false }).populate('paymentInformation');
     if (!order) {
         res.status(404);
+        console.log(`${orderId}: Đơn hàng không tồn tại`);
         throw new Error('Đơn hàng không tồn tại!');
     }
     if (order.signature !== req.body.signature) {
+        console.log(`order.signature: ${order.signature}`);
+        console.log(`req.body.signature: ${req.body.signature}`);
+        console.log(`Chữ ký ko hợp lệ`);
         res.status(400);
         throw new Error('Chữ ký không hợp lệ');
     }
