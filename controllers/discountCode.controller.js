@@ -14,35 +14,37 @@ const getDiscountCodeById = async (req, res) => {
     const discountCodeId = req.params.id || null;
     if (!ObjectId.isValid(discountCodeId)) {
         res.status(400);
-        throw new Error('ID is not valid');
+        throw new Error('ID mã giảm giá không hợp lệ');
     }
     const discountCode = await DiscountCode.findOne({ _id: discountCodeId });
     if (!discountCode) {
         res.status(404);
-        throw new Error('Discount code not found');
+        throw new Error('Mã giảm giá không tồn tại');
     }
-    return res.status(200).json({ success: true, message: '', data: { discountCode: discountCode } });
+    return res.status(200).json({ message: 'Success', data: { discountCode: discountCode } });
 };
 const getDiscountCodeByCode = async (req, res) => {
     const code = req.params.code || null;
     const discountCode = await DiscountCode.findOne({ code: code });
     if (!discountCode) {
         res.status(404);
-        throw new Error('Discount code not found');
+        throw new Error('Mã giảm giá không tồn tại');
     }
-    return res.status(200).json({ success: true, message: '', data: { discountCode: discountCode } });
+    return res.status(200).json({ message: 'Success', data: { discountCode: discountCode } });
 };
 const createDiscountCode = async (req, res) => {
+    // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        return res.status(400).json({ success: false, message: 'An error occurred', ...errors });
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ message: message });
     }
     const { code, discountType, discount, startDate, endDate, isUsageLimit, usageLimit, applicableProducts } = req.body;
 
     const discountCodeExists = await DiscountCode.findOne({ code: code });
     if (discountCodeExists) {
         res.status(409);
-        throw new Error('This Discount code already exists');
+        throw new Error('Mã giảm giá đã tồn tại');
     }
 
     const discountCode = new DiscountCode({
@@ -56,29 +58,31 @@ const createDiscountCode = async (req, res) => {
         applicableProducts,
     });
     const newDiscountCode = await discountCode.save();
-    return res.status(201).json({ success: true, message: 'DiscountCode are added', data: { newDiscountCode } });
+    return res.status(201).json({ message: 'Mã giảm giá đã được thêm', data: { newDiscountCode } });
 };
 
 const updateDiscountCode = async (req, res) => {
+    // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        return res.status(400).json({ success: false, message: 'An error occurred', ...errors });
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ message: message });
     }
     const { code, discountType, discount, startDate, endDate, isUsageLimit, usageLimit, applicableProducts } = req.body;
     // Check id
     const discountCodeId = req.params.id || null;
     if (!ObjectId.isValid(discountCodeId)) {
         res.status(400);
-        throw new Error('ID is not valid');
+        throw new Error('ID Mã giảm giá không hợp lệ');
     }
     const currentDiscountCode = await DiscountCode.findById(discountCodeId);
     if (!currentDiscountCode) {
-        return res.status(404).json({ success: true, message: 'Discount code not found' });
+        return res.status(404).json({ message: 'Mã giảm giá không tồn tại' });
     }
     const discountCodeExists = await DiscountCode.findOne({ code: code });
     if (discountCodeExists && discountCodeExists._id.toString() !== currentDiscountCode._id.toString()) {
         res.status(409);
-        throw new Error('This Discount code already exists');
+        throw new Error('Mã giảm giá đã tồn tại');
     }
 
     currentDiscountCode.code = code || currentDiscountCode.code;
@@ -92,22 +96,24 @@ const updateDiscountCode = async (req, res) => {
     currentDiscountCode.applicableProducts = applicableProducts || currentDiscountCode.applicableProducts;
 
     const updateDiscountCode = await currentDiscountCode.save();
-    return res.status(200).json({ success: true, message: 'DiscountCode are added', data: { updateDiscountCode } });
+    return res
+        .status(200)
+        .json({ success: true, message: 'Cập nhật mã giảm giá thành công', data: { updateDiscountCode } });
 };
 
 const deleteDiscountCode = async (req, res) => {
     const discountCodeId = req.params.id || null;
     if (!ObjectId.isValid(discountCodeId)) {
         res.status(400);
-        throw new Error('ID is not valid');
+        throw new Error('ID mã giảm giá không hợp lệ');
     }
     await User.updateMany({ $pull: { discountCode: discountCodeId } });
     const deletedDiscountCode = await DiscountCode.findByIdAndDelete(discountCodeId);
     if (!deletedDiscountCode) {
         res.status(404);
-        throw new Error('Discount not found');
+        throw new Error('Mã giảm giá không tồn tại');
     }
-    res.status(200).json({ success: true, message: 'Discount code is deleted' });
+    res.status(200).json({ message: 'Xóa mã giảm giá thành công' });
 };
 
 const bannerController = {

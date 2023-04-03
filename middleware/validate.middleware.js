@@ -588,9 +588,9 @@ const validate = {
             }
             return true;
         }),
-        check('limit').isInt({ min: 0 }).withMessage('Giới hạn phải là số nguyên và phải lớn hơn hoặc bằng 0'),
-        check('page').isInt({ min: 0 }).withMessage('Số thứ tự trang phải là số nguyên và phải lớn hơn hoặc bằng 0'),
-        check('status').isString().withMessage(' Trạng thái phải là chuỗi kí tự'),
+        // check('limit').isInt({ min: 0 }).withMessage('Giới hạn phải là số nguyên và phải lớn hơn hoặc bằng 0'),
+        // check('page').isInt({ min: 0 }).withMessage('Số thứ tự trang phải là số nguyên và phải lớn hơn hoặc bằng 0'),
+        // check('status').isString().withMessage(' Trạng thái phải là chuỗi kí tự'),
     ],
 
     placeOrder: [

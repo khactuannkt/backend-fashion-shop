@@ -53,7 +53,7 @@ const getOrderById = async (req, res) => {
         throw new Error('Đơn hàng không tồn tại');
     }
     if (req.user.role !== 'staff' && req.user.role !== 'admin') {
-        if (req.user._id !== order.user) {
+        if (req.user._id.toString() !== order.user.toString()) {
             res.status(404);
             throw new Error('Đơn hàng không tồn tại');
         }
@@ -444,19 +444,23 @@ const orderPaymentNotification = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+        console.log(errors.array()[0]);
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
     const orderId = req.params.id;
     const order = await Order.findOne({ _id: orderId, disabled: false }).populate('paymentInformation');
+    console.log('order: ' + order);
     if (!order) {
         res.status(404);
         throw new Error('Đơn hàng không tồn tại!');
     }
-    if (order.paymentInformation.signature !== req.body.signature) {
+    console.log('req.body: ' + req.body);
+    if (order.paymentInformation.signature?.toString() !== req.body.signature?.toString()) {
         res.status(400);
         throw new Error('Chữ ký không hợp lệ');
     }
+
     order.paymentInformation.paid = true;
     order.paymentInformation.paidAt = new Date();
     order.paymentInformation.save();
@@ -478,7 +482,7 @@ const userPaymentOrder = async (req, res) => {
         res.status(404);
         throw new Error('Đơn hàng không tồn tại!');
     }
-    if (order.paymentInformation.paid == true) {
+    if (order.paymentInformation.paid === true) {
         res.status(400);
         throw new Error('Đơn hàng đã hoàn thành việc thanh toán');
     }

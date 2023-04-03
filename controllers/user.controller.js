@@ -70,11 +70,11 @@ const login = async (req, res) => {
     }
 };
 const refreshToken = async (req, res) => {
-    const refreshToken = req.body.refreshToken.toString().trim() || '';
-    if (!refreshToken || refreshToken == '') {
+    if (!req.body.refreshToken || req.body.refreshToken.toString().trim() == '') {
         res.status(401);
         throw new Error('Not authorized, no token');
     }
+    const refreshToken = req.body.refreshToken.toString();
     try {
         const decoded = jwt.verify(refreshToken, process.env.REFRESH_JWT_SECRET);
         const userId = decoded._id || null;

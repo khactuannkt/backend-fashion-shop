@@ -3,23 +3,13 @@ import Product from '../models/product.model.js';
 import { check, validationResult } from 'express-validator';
 import { cloudinaryUpload, cloudinaryRemove } from '../utils/cloudinary.js';
 import { ObjectId } from 'mongodb';
-const getCategories = async (req, res, next) => {
+const getCategories = async (req, res) => {
     const categories = await Category.find({}).sort({ _id: -1 });
-    if (categories) {
-        return res.json({ success: true, message: 'Get list of successful categories', data: { categories } });
-    } else {
-        res.status(404);
-        throw new Error('Category not Found');
-    }
+    return res.json({ message: 'Success', data: { categories } });
 };
-const getCategoryTree = async (req, res, next) => {
+const getCategoryTree = async (req, res) => {
     const categories = await Category.find({ level: 1 }).populate('children').sort({ _id: -1 });
-    if (categories) {
-        return res.json({ success: true, message: 'Get list of successful categories', data: { categories } });
-    } else {
-        res.status(404);
-        throw new Error('Category not Found');
-    }
+    return res.json({ message: 'Success', data: { categories } });
 };
 const getCategoryById = async (req, res, next) => {
     const categoryId = req.params.id || null;
@@ -29,24 +19,25 @@ const getCategoryById = async (req, res, next) => {
     }
     const category = await Category.findById(categoryId).populate('children', 'parent');
     if (category) {
-        return res.json({ success: true, message: 'Get successful category detail', data: { category: category } });
+        return res.json({ message: 'Success', data: { category: category } });
     } else {
         res.status(404);
-        throw new Error('Category not Found');
+        throw new Error('Danh mục không tồn tại');
     }
 };
 const createCategory = async (req, res, next) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        return res.status(400).json({ success: false, message: 'An error occurred', ...errors });
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ message: message });
     }
     const { name, image, level, parent } = req.body;
 
     const categoryExists = await Category.findOne({ name: name.trim() });
     if (categoryExists) {
         res.status(409);
-        throw new Error('This category already exists');
+        throw new Error('Danh mục đã tồn tại');
     }
 
     const category = new Category({
@@ -57,20 +48,20 @@ const createCategory = async (req, res, next) => {
     if (category.level > 1) {
         if (!parent || parent.trim() === '') {
             res.status(400);
-            throw new Error('If level is greater than 1 then Parent category is required');
+            throw new Error('Nếu danh mục có cấp độ lớn hơn 1 thì phải chọn danh mục mẹ');
         }
         if (!ObjectId.isValid(parent)) {
             res.status(400);
-            throw new Error('Parent category ID is not valid');
+            throw new Error('ID danh mục mẹ không hợp lệ');
         }
         parentCat = await Category.findById(parent);
         if (!parentCat) {
             res.status(404);
-            throw new Error('Parent category is not found');
+            throw new Error('Danh mục mẹ không tồn tại');
         }
         if (parentCat.level >= category.level) {
             res.status(400);
-            throw new Error('Parent category level must be smaller than the category you want to create');
+            throw new Error('Danh mục mẹ phải có cấp độ nhỏ hơn cấp độ danh mục muốn tạo');
         }
         category.parent = parentCat._id;
         parentCat.children.push(category._id);
@@ -104,14 +95,15 @@ const createCategory = async (req, res, next) => {
     if (parentCat) {
         await parentCat.save();
     }
-    res.status(201).json({ success: true, message: 'Add successful category', data: { newCategory } });
+    res.status(201).json({ message: 'Thêm danh mục thành công', data: { newCategory } });
 };
 
 const updateCategory = async (req, res, next) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        return res.status(400).json({ success: false, message: 'An error occurred', ...errors });
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ message: message });
     }
     const categoryId = req.params.id || null;
 
@@ -119,7 +111,7 @@ const updateCategory = async (req, res, next) => {
     const currentCategory = await Category.findById(categoryId);
     if (!currentCategory) {
         res.status(404);
-        throw new Error('Category is not found');
+        throw new Error('Danh mục không tồn tại');
     }
     const { name, level, image, parent } = req.body;
     let newParentCat, currentParentCat;
@@ -129,7 +121,7 @@ const updateCategory = async (req, res, next) => {
         const categoryExists = await Category.findOne({ name: name.trim() });
         if (categoryExists && categoryExists.name != currentCategory.name) {
             res.status(409);
-            throw new Error('This category already exists');
+            throw new Error('Danh mục đã tồn tại');
         }
         currentCategory.name = name.trim();
     }
@@ -141,7 +133,7 @@ const updateCategory = async (req, res, next) => {
         newParentCat = await Category.findById(parent);
         if (!newParentCat) {
             res.status(404);
-            throw new Error('Parent category is not found');
+            throw new Error('Danh mục mẹ không tồn tại');
         }
 
         if (
@@ -150,7 +142,7 @@ const updateCategory = async (req, res, next) => {
                 (newParentCat._id != currentCategory._id || currentCategory.level > 1))
         ) {
             res.status(400);
-            throw new Error('The parent category level must be smaller than the one you want to update');
+            throw new Error('Danh mục mẹ phải có cấp độ nhỏ hơn cấp độ danh mục muốn cập nhật');
         }
 
         if (currentCategory.parent !== parent) {
@@ -202,29 +194,29 @@ const updateCategory = async (req, res, next) => {
     if (currentParentCat) {
         await currentParentCat.save();
     }
-    res.status(200).json({ success: true, message: 'Category updated successfully', data: { updateCategory } });
+    res.status(200).json({ message: 'Cập nhật danh mục thành công', data: { updateCategory } });
 };
 const deleteCategory = async (req, res, next) => {
     const categoryId = req.params.id || null;
     if (!ObjectId.isValid(categoryId)) {
         res.status(400);
-        throw new Error('ID is not valid');
+        throw new Error('ID danh mục không hợp lệ');
     }
     const category = await Category.findById(categoryId);
     if (!category) {
         res.status(404);
-        throw new Error('Category not found');
+        throw new Error('Danh mục không tồn tại');
     }
 
     if (category.children.length > 0) {
         res.status(400);
-        throw new Error('This category has a subcategory tag');
+        throw new Error('Danh mục danh tồn tại danh mục con. không thể xóa được');
     }
 
     const categoryInProduct = await Product.findOne({ category: category._id });
     if (categoryInProduct) {
         res.status(400);
-        throw new Error('Exit products of category');
+        throw new Error('Đang tồn tại sản phẩm có thể loại là danh mục này. không thể xóa được');
     }
     let parentCat;
     if (category.parent && category._id.toString() != category.parent.toString()) {
@@ -240,7 +232,7 @@ const deleteCategory = async (req, res, next) => {
     if (parentCat) {
         await parentCat.save();
     }
-    res.status(200).json({ success: true, message: 'Category deleted successfully' });
+    res.status(200).json({ message: 'Xóa danh mục thành công' });
 };
 
 const categoryController = {

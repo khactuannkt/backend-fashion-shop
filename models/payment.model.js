@@ -14,7 +14,6 @@ const paymentSchema = mongoose.Schema(
         },
         signature: {
             type: String,
-            required: true,
         },
         paymentMethod: {
             type: String,

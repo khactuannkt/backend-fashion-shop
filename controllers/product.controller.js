@@ -239,7 +239,7 @@ const updateProduct = async (req, res) => {
     }
 
     const { name, description, category, images, brand, keywords, variants } = req.body;
-    // let variants = JSON.parse(req.body.variants);
+
     const currentProduct = await Product.findById(req.params.id);
     if (!currentProduct) {
         res.status(404);
@@ -297,14 +297,18 @@ const updateProduct = async (req, res) => {
         res.status(400);
         throw new Error('Thiếu hình ảnh. Vui lòng đăng tải ít nhất 1 hình ảnh');
     }
-    const oldImages = currentProduct.images;
     currentProduct.images = updateImages;
     //update variant
     //update current variants
     const oldVariants = currentProduct.variants;
     const variantUpdates = variants.map(async (variant) => {
         if (currentProduct.variants.indexOf(variant._id) != -1) {
-            return await Variant.findByIdAndUpdate(variant._id, { ...variant }, { new: true });
+            const variantUpdate = await Variant.findByIdAndUpdate(variant._id, { ...variant }, { new: true });
+            if (!variantUpdate) {
+                res.status(400);
+                throw new Error(`"${variant._id}" ID biến thể cần cập nhật không tồn tại`);
+            }
+            return variantUpdate;
         } else {
             const newVariant = new Variant({
                 product: currentProduct._id,
@@ -314,6 +318,10 @@ const updateProduct = async (req, res) => {
         }
     });
     const updateVariants = await Promise.all(variantUpdates);
+    if (!updateVariants || updateVariants.length == 0) {
+        res.status(400);
+        throw new Error('Cập nhật biến thể sản phẩm lỗi');
+    }
     //recalculate product price and total quantity
     let minPriceSale = updateVariants[0].priceSale;
     let minPrice = updateVariants[0].price;
@@ -332,24 +340,13 @@ const updateProduct = async (req, res) => {
     currentProduct.quantity = totalQuantity;
 
     const updatedProduct = await currentProduct.save();
-    const compareVariants = differenceBy(oldVariants, updatedProduct.variants, '_id');
-    //Check the difference of 2 arrays
-    const compareImages = difference(oldImages, updatedProduct.images);
-    if (compareImages.length > 0) {
-        compareImages.map((image) => {
-            const publicId = image.substring(url.lastIndexOf('/') + 1, url.lastIndexOf('.'));
-            cloudinaryRemove('FashionShop/products/' + publicId);
-        });
-    }
-    if (compareVariants.length > 0) {
-        compareVariants.map((variant) => {
-            if (variant.image) {
-                const publicId = variant.image.substring(url.lastIndexOf('/') + 1, url.lastIndexOf('.'));
-                cloudinaryRemove('FashionShop/products/' + publicId);
-            }
-        });
-        await Variant.deleteMany({ _id: { $in: compareVariants } });
-    }
+    const compareVariants = oldVariants.map((oldVariant) => {
+        if (updatedProduct.variants.indexOf(oldVariant._id) == -1) {
+            return oldVariant;
+        }
+        return null;
+    });
+    await Variant.deleteMany({ _id: { $in: compareVariants } });
     res.status(200).json({ message: 'Cập nhật Sản phẩm thành công', data: { updatedProduct } });
 };
 
