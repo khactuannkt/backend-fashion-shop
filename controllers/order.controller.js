@@ -450,16 +450,15 @@ const orderPaymentNotification = async (req, res) => {
     }
     const orderId = req.params.id;
     const order = await Order.findOne({ _id: orderId, disabled: false }).populate('paymentInformation');
-    console.log('order: ' + order);
     if (!order) {
         res.status(404);
         throw new Error('Đơn hàng không tồn tại!');
     }
-    console.log('req.body: ' + JSON.parse(req.body));
     console.log('req.body.signature: ' + req.body.signature);
     console.log('type req.body.signature: ' + typeof req.body.signature);
     console.log('order.paymentInformation.signature: ' + order.paymentInformation.signature);
     console.log('order.paymentInformation.signature: ' + typeof order.paymentInformation.signature);
+    console.log('req.body: ' + JSON.parse(req.body));
     if (order.paymentInformation.signature?.toString() != req.body.signature?.toString()) {
         console.log('chữ ký ko hợp lệ');
         res.status(400);
