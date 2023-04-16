@@ -308,12 +308,12 @@ const validate = {
             .withMessage('Mật khẩu không được để trống')
             .matches(/^(?=.*[A-Za-z])(?=.*\d)[^\s]{6,255}$/)
             .withMessage('Mật khẩu phải từ 6 - 255 ký tự, ít nhất 1 chữ cái, 1 chữ số và không có khoảng trắng'),
-        check('confirmPassword').custom((confirmPassword, { req }) => {
-            if (confirmPassword !== req.body.password) {
-                throw new Error('Xác nhận mật khẩu không khớp');
-            }
-            return true;
-        }),
+        // check('confirmPassword').custom((confirmPassword, { req }) => {
+        //     if (confirmPassword !== req.body.password) {
+        //         throw new Error('Xác nhận mật khẩu không khớp');
+        //     }
+        //     return true;
+        // }),
     ],
     login: [
         check('email')
@@ -394,12 +394,12 @@ const validate = {
             .withMessage('Mật khẩu không được để trống')
             .matches(/^(?=.*[A-Za-z])(?=.*\d)[^\s]{6,255}$/)
             .withMessage('Mật khẩu phải từ 6 - 255 ký tự, ít nhất 1 chữ cái, 1 chữ số và không có khoảng trắng'),
-        check('confirmPassword').custom((confirmPassword, { req }) => {
-            if (confirmPassword !== req.body.password) {
-                throw new Error('Xác nhận mật khẩu không khớp');
-            }
-            return true;
-        }),
+        // check('confirmPassword').custom((confirmPassword, { req }) => {
+        //     if (confirmPassword !== req.body.password) {
+        //         throw new Error('Xác nhận mật khẩu không khớp');
+        //     }
+        //     return true;
+        // }),
         check('resetPasswordToken').not().isEmpty().withMessage('Token đặt lại mật khẩu không hợp lệ'),
     ],
     changePassword: [
@@ -666,5 +666,136 @@ const validate = {
             .isInt({ min: 1, max: 5 })
             .withMessage('Số sao đánh giá phải là số nguyên từ 1 đến 5'),
     ],
+
+    //====================Validate delivery==================
+    getDistrict: [
+        check('province_id').custom((province_id) => {
+            if (province_id) {
+                if (typeof province_id != 'number') {
+                    throw new Error('Mã Tỉnh/Thành phố phải là số nguyên');
+                }
+            }
+            return true;
+        }),
+    ],
+    getWard: [
+        check('district_id')
+            .notEmpty()
+            .withMessage('Mã quận huyện không được để trống')
+            .isInt()
+            .withMessage('Mã Quận/Huyện phải là số nguyên'),
+    ],
+    calculateFee: [
+        // check('from_district_id').custom((from_district_id) => {
+        //     if (from_district_id) {
+        //         if (typeof from_district_id != 'number') {
+        //             throw new Error('Mã quận/huyện phải là số nguyên');
+        //         }
+        //     }
+        //     return true;
+        // }),
+        check('service_id')
+            .notEmpty()
+            .withMessage('Mã dịch vụ không được để trống')
+            .isInt()
+            .withMessage('Mã dịch vụ phải là số nguyên'),
+        check('to_district_id')
+            .notEmpty()
+            .withMessage('Mã quận/huyện của người nhận hàng không được để trống')
+            .isInt()
+            .withMessage('Mã quận/huyện của người nhận phải là số nguyên'),
+        check('to_ward_code')
+            .notEmpty()
+            .withMessage('Mã phường/xã của người nhận hàng không được để trống')
+            .isString()
+            .withMessage('Mã phường/xã của người nhận phải là chuỗi ký tự'),
+        check('weight')
+            .notEmpty()
+            .withMessage('Khối lượng của đơn hàng không được để trống')
+            .isInt({ min: 1, max: 1600000 })
+            .withMessage(
+                'Khối lượng của đơn hàng phải là số nguyên và phải lớn hơn 0 và bé hơn hoặc bằng 1600000 gram',
+            ),
+        check('height').custom((height) => {
+            if (height) {
+                if (typeof height != 'number' && height >= 0 && height <= 200) {
+                    throw new Error(
+                        'Chiều cao của đơn hàng phải là số nguyên và phải lớn hơn hoặc bằng 0 và bé hơn hoặc bằng 200cm',
+                    );
+                }
+            }
+            return true;
+        }),
+        check('length').custom((length) => {
+            if (length) {
+                if (typeof length != 'number' && length >= 0 && length <= 200) {
+                    throw new Error(
+                        'Chiều dài của đơn hàng phải là số nguyên và phải lớn hơn hoặc bằng 0 và bé hơn hoặc bằng 200cm',
+                    );
+                }
+            }
+            return true;
+        }),
+        check('width').custom((width) => {
+            if (width) {
+                if (typeof width != 'number' && width >= 0 && width <= 200) {
+                    throw new Error(
+                        'Chiều dài của đơn hàng phải là số nguyên và phải lớn hơn hoặc bằng 0 và bé hơn hoặc bằng 200cm',
+                    );
+                }
+            }
+            return true;
+        }),
+        check('insurance_value').custom((insurance_value) => {
+            if (insurance_value) {
+                if (typeof insurance_value != 'number' && insurance_value >= 0) {
+                    throw new Error('Giá trị của đơn hàng phải là số nguyên và lớn hơn hoặc bằng 0');
+                }
+            }
+            return true;
+        }),
+        check('coupon').custom((coupon) => {
+            if (coupon) {
+                if (typeof coupon != 'string') {
+                    throw new Error('Mã giảm giá của phải là chuỗi ký tự');
+                }
+            }
+            return true;
+        }),
+    ],
+    estimatedDeliveryTime: [
+        // check('from_district_id').custom((from_district_id) => {
+        //     if (from_district_id) {
+        //         if (typeof from_district_id != 'number') {
+        //             throw new Error('Mã quận/huyện phải là số nguyên');
+        //         }
+        //     }
+        //     return true;
+        // }),
+        // check('from_ward_id').custom((from_ward_id) => {
+        //     if (from_ward_id) {
+        //         if (typeof from_ward_id != 'number') {
+        //             throw new Error('Mã phường/xã của người gửi hàng không được để trống');
+        //         }
+        //     }
+        //     return true;
+        // }),
+        check('service_id')
+            .notEmpty()
+            .withMessage('Mã dịch vụ không được để trống')
+            .isInt()
+            .withMessage('Mã dịch vụ phải là số nguyên'),
+        check('to_district_id')
+            .notEmpty()
+            .withMessage('Mã quận/huyện của người nhận hàng không được để trống')
+            .isInt()
+            .withMessage('Mã quận/huyện của người nhận phải là số nguyên'),
+        check('to_ward_code')
+            .notEmpty()
+            .withMessage('Mã phường/xã của người nhận hàng không được để trống')
+            .isString()
+            .withMessage('Mã phường/xã của người nhận phải là chuỗi ký tự'),
+    ],
+    createShippingOrder: [],
 };
 export default validate;

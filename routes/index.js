@@ -6,11 +6,13 @@ import bannerRouter from './banner.route.js';
 import cartRouter from './cart.route.js';
 import categoryRouter from './category.route.js';
 import discountCodeRouter from './discountCode.route.js';
+import deliveryRouter from './delivery.route.js';
 import testRouter from './test.route.js';
 const routes = (app) => {
     app.use('/api/v1/banners', bannerRouter);
     app.use('/api/v1/carts', cartRouter);
     app.use('/api/v1/categories', categoryRouter);
+    app.use('/api/v1/deliveries', deliveryRouter);
     app.use('/api/v1/discount-codes', discountCodeRouter);
     app.use('/api/v1/imports', ImportData);
     app.use('/api/v1/orders', orderRouter);
