@@ -12,7 +12,7 @@ const paymentSchema = mongoose.Schema(
             required: true,
             ref: 'Order',
         },
-        signature: {
+        requestId: {
             type: String,
         },
         paymentMethod: {

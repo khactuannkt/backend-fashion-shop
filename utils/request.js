@@ -10,7 +10,7 @@ export const GHN_Request = axios.create({
 });
 
 export const momo_Request = axios.create({
-    baseURL: 'https://test-payment.momo.vn/v2/gateway/api/create',
+    baseURL: 'https://test-payment.momo.vn/v2/gateway/api',
     headers: {
         'Content-Type': 'application/json',
         // 'Content-Length': Buffer.byteLength(requestBody),

@@ -408,10 +408,8 @@ const validate = {
             .not()
             .isEmpty()
             .withMessage('Mật khẩu mới không được để trống')
-            .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*d)(?=.*[@$!%*?&])[A-Za-zd@$!%*?&]{8,255}$/)
-            .withMessage(
-                'Mật khẩu phải từ 8 - 255 ký tự, ít nhất 1 chữ hoa, 1 chữ thường, 1 số, 1 ký tự đặc biệt và không có khoảng trắng',
-            ),
+            .matches(/^(?=.*[A-Za-z])(?=.*\d)[^\s]{6,255}$/)
+            .withMessage('Mật khẩu phải từ 6 - 255 ký tự, ít nhất 1 chữ cái, 1 chữ số và không có khoảng trắng'),
     ],
 
     //====================Validate Product==================

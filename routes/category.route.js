@@ -6,7 +6,7 @@ import validate from '../middleware/validate.middleware.js';
 
 const categoryRouter = express.Router();
 
-categoryRouter.get('/get_category_tree', asyncHandler(categoryController.getCategoryTree));
+categoryRouter.get('/get-category-tree', asyncHandler(categoryController.getCategoryTree));
 categoryRouter.get('/:id', protect, auth('staff', 'admin'), asyncHandler(categoryController.getCategoryById));
 categoryRouter.get('/', asyncHandler(categoryController.getCategories));
 categoryRouter.post(

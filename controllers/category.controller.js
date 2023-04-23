@@ -4,7 +4,12 @@ import { check, validationResult } from 'express-validator';
 import { cloudinaryUpload, cloudinaryRemove } from '../utils/cloudinary.js';
 import { ObjectId } from 'mongodb';
 const getCategories = async (req, res) => {
-    const categories = await Category.find({}).sort({ _id: -1 });
+    const level = req.query.level;
+    const filter = {};
+    if (level) {
+        filter.level = level;
+    }
+    const categories = await Category.find(filter).sort({ _id: -1 });
     return res.json({ message: 'Success', data: { categories } });
 };
 const getCategoryTree = async (req, res) => {

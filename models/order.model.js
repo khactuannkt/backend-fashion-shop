@@ -72,35 +72,34 @@ const orderSchema = mongoose.Schema(
         shippingAddress: {
             receiver: {
                 type: String,
-                required: true,
+                // required: true,
             },
             phone: {
                 type: String,
-                required: true,
+                // required: true,
             },
             province: {
                 type: String,
-                default: '',
+                // default: '',
             },
             district: {
                 type: String,
-                default: '',
+                // default: '',
             },
             ward: {
                 type: String,
-                default: '',
+                // default: '',
             },
             specificAddress: {
                 type: String,
-                default: '',
+                // default: '',
             },
         },
-        // paymentMethod: {
-        //     type: String,
-        //     required: true,
-        //     enum: ['payment-with-cash', 'payment-with-momo'],
-        //     default: 'payment-with-cash',
-        // },
+        delivery: {
+            type: mongoose.Schema.Types.ObjectId,
+            required: true,
+            ref: 'Delivery',
+        },
         paymentInformation: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Payment',

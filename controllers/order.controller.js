@@ -10,6 +10,8 @@ import { validationResult } from 'express-validator';
 import createRequestBody from '../utils/payment-with-momo.js';
 import axios from 'axios';
 import Payment from '../models/payment.model.js';
+import { v4 as uuidv4 } from 'uuid';
+import { momo_Request } from '../utils/request.js';
 
 const getOrdersByUserId = async (req, res) => {
     // Validate the request data using express-validator
@@ -76,16 +78,6 @@ const getOrders = async (req, res) => {
         .sort({ ...dateOrderSortBy });
     res.status(200);
     res.json({ orders, page, pages: Math.ceil(count / pageSize), totalOrders: count });
-};
-
-const getOrderShippingAddress = async (req, res) => {
-    const order = await Order.find({ user: req.user._id });
-    if (order) {
-        res.json(order[order.length - 1].shippingAddress);
-    } else {
-        res.status(404);
-        throw new Error('Not found order of user');
-    }
 };
 
 const placeOrder = async (req, res, next) => {
@@ -241,8 +233,10 @@ const placeOrder = async (req, res, next) => {
                 //Create payment information
                 const redirectUrl = `${process.env.CLIENT_PAGE_URL}/order/${newOrder._id}`;
                 const ipnUrl = `${process.env.API_URL}/api/v1/orders/${newOrder._id}/payment-notification`;
-                const { requestBody, signature } = createRequestBody(
+                const requestId = uuidv4();
+                const requestBody = createRequestBody(
                     newOrder._id,
+                    requestId,
                     'Thanh toán đơn hàng tại Fashion Shop',
                     newOrder.totalPayment,
                     redirectUrl,
@@ -254,14 +248,14 @@ const placeOrder = async (req, res, next) => {
                         'Content-Length': Buffer.byteLength(requestBody),
                     },
                 };
-                const { data } = await axios.post(
-                    'https://test-payment.momo.vn/v2/gateway/api/create',
-                    requestBody,
-                    config,
-                );
+                const { data } = await momo_Request.post('/create', requestBody, config);
                 if (data.resultCode == 0) {
                     newPaymentInformation.payUrl = data.payUrl;
-                    newPaymentInformation.signature = signature;
+                    newPaymentInformation.requestId = requestId;
+                } else {
+                    await session.abortTransaction();
+                    res.status(500);
+                    throw new Error('Gặp lỗi khi tạo thông tin thanh toán');
                 }
             } else {
                 newPaymentInformation.paymentMethod = 'payment-with-cash';
@@ -324,6 +318,7 @@ const confirmOrder = async (req, res) => {
     }
     order.statusHistory.push({ status: 'confirm', description: description });
     order.status = 'confirm';
+
     const updateOrder = await order.save();
     res.status(200).json({ message: 'Xác nhận đơn hàng thành công', data: { updateOrder } });
 };
@@ -448,27 +443,27 @@ const orderPaymentNotification = async (req, res) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-    const orderId = req.params.id;
+    const orderId = req.body.orderId.toString().trim() || '';
+    if (!orderId) {
+        res.status(400);
+        throw new Error('Mã đơn hàng là giá trị bắt buộc');
+    }
     const order = await Order.findOne({ _id: orderId, disabled: false }).populate('paymentInformation');
     if (!order) {
         res.status(404);
         throw new Error('Đơn hàng không tồn tại!');
     }
-    console.log('req.body.signature: ' + req.body.signature);
-    console.log('type req.body.signature: ' + typeof req.body.signature);
-    console.log('order.paymentInformation.signature: ' + order.paymentInformation.signature);
-    console.log('order.paymentInformation.signature: ' + typeof order.paymentInformation.signature);
-    console.log('req.body: ' + JSON.parse(req.body));
-    if (order.paymentInformation.signature?.toString() != req.body.signature?.toString()) {
-        console.log('chữ ký ko hợp lệ');
+    if (
+        order.paymentInformation.requestId?.toString() != req.body.requestId?.toString() ||
+        Number(order.paymentInformation.paymentAmount) != Number(req.body.amount)
+    ) {
         res.status(400);
-        throw new Error('Chữ ký không hợp lệ');
+        throw new Error('Thông tin xác nhận thanh toán không hợp lệ');
     }
-
     order.paymentInformation.paid = true;
     order.paymentInformation.paidAt = new Date();
     order.paymentInformation.save();
-    res.status(204);
+    res.status(200);
 };
 
 const userPaymentOrder = async (req, res) => {
