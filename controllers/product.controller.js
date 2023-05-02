@@ -96,25 +96,8 @@ const getProductRecommend = async (req, res) => {
 };
 
 const getAllProductsByAdmin = async (req, res) => {
-    const pageSize = 10;
-    const page = Number(req.query.pageNumber) || 1;
-    let search = {};
-    if (req.query.keyword) {
-        search.name = {
-            $regex: req.query.keyword,
-            $options: 'i',
-        };
-    }
-    if (req.query.category) {
-        search.category = req.query.category;
-    }
-    const count = await Product.countDocuments({ ...search });
-    const products = await Product.find({ ...search })
-        .populate(`category`)
-        .limit(pageSize)
-        .skip(pageSize * (page - 1))
-        .sort({ createdAt: -1 });
-    res.json({ products, page, pages: Math.ceil(count / pageSize), countProducts: count });
+    const products = await Product.find().sort({ createdAt: -1 });
+    res.json({ data: { products } });
 };
 
 const getProductBySlug = async (req, res) => {

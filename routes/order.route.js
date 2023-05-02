@@ -14,7 +14,8 @@ orderRouter.get(
 );
 orderRouter.get('/:id', validate.validateOrderId, protect, asyncHandler(orderController.getOrderById));
 orderRouter.get('/', protect, auth('staff', 'admin'), asyncHandler(orderController.getOrders));
-orderRouter.post('/', validate.placeOrder, protect, auth('user'), asyncHandler(orderController.placeOrder));
+// orderRouter.post('/', validate.placeOrder, protect, auth('user'), asyncHandler(orderController.placeOrder));
+orderRouter.post('/', validate.createOrder, protect, auth('user'), asyncHandler(orderController.createOrder));
 orderRouter.post(
     '/:id/payment-notification',
     validate.validateOrderId,

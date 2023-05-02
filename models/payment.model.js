@@ -18,8 +18,8 @@ const paymentSchema = mongoose.Schema(
         paymentMethod: {
             type: String,
             required: true,
-            enum: ['payment-with-cash', 'payment-with-momo'],
-            default: 'payment-with-cash',
+            enum: [1, 2],
+            default: 1,
         },
         payUrl: {
             type: String,

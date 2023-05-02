@@ -590,7 +590,60 @@ const validate = {
         // check('page').isInt({ min: 0 }).withMessage('Số thứ tự trang phải là số nguyên và phải lớn hơn hoặc bằng 0'),
         // check('status').isString().withMessage(' Trạng thái phải là chuỗi kí tự'),
     ],
-
+    createOrder: [
+        check('shippingAddress')
+            .isObject()
+            .withMessage(
+                'Địa chỉ giao hàng phải là một đối tượng gồm các tên, số điện thoại và địa chỉ của người nhận hàng',
+            )
+            .custom((shippingAddress) => {
+                if (!shippingAddress.to_name || shippingAddress.to_name.toString().trim() === '') {
+                    throw new Error('Họ tên người nhận không được để trống');
+                }
+                if (!shippingAddress.to_phone || shippingAddress.to_phone.toString().trim() === '') {
+                    throw new Error('Số điện thoại người nhận không được để trống');
+                }
+                if (!shippingAddress.to_province_id || shippingAddress.to_province_id.toString().trim() === '') {
+                    throw new Error('Tỉnh/Thành phố không được để trống');
+                }
+                if (!shippingAddress.to_district_id || shippingAddress.to_district_id.toString().trim() === '') {
+                    throw new Error('Quận/Huyện không được để trống');
+                }
+                if (!shippingAddress.to_ward_code || shippingAddress.to_ward_code.toString().trim() === '') {
+                    throw new Error('Phường/Xã không được để trống');
+                }
+                if (!shippingAddress.to_address || shippingAddress.to_address.toString().trim() === '') {
+                    throw new Error('Địa chỉ chi tiết không được để trống');
+                }
+                return true;
+            }),
+        check('paymentMethod').custom((paymentMethod) => {
+            if (!paymentMethod || paymentMethod.toString().trim() == '') {
+                throw new Error('Phương thức thanh toán là giá trị bắt buộc');
+            }
+            if (paymentMethod !== 1 && paymentMethod !== 2) {
+                throw new Error(' Phương thức thanh toán không hợp lệ');
+            }
+            return true;
+        }),
+        check('orderItems')
+            .isArray()
+            .withMessage('Danh sách các sản phẩm đặt hàng phải là mảng')
+            .notEmpty()
+            .withMessage('Danh sách các sản phẩm đặt hàng không được để trống'),
+        check('orderItems.*.variant').custom((variant) => {
+            if (!ObjectId.isValid(variant)) {
+                throw new Error(`ID biến thể sản phẩm "${variant}" không hợp lệ`);
+            }
+            return true;
+        }),
+        check('orderItems.*.quantity')
+            .notEmpty()
+            .withMessage('Số lượng sản phẩm đặt hàng không được để trống')
+            .isInt({ min: 1 })
+            .withMessage('Số lượng sản phẩm đặt hàng phải là số nguyên và phải lớn hơn 0'),
+        // check('discountCode').isString().withMessage('Mã giảm giá phải là chuỗi kí tự'),
+    ],
     placeOrder: [
         check('shippingAddress')
             .isObject()

@@ -69,32 +69,32 @@ const orderSchema = mongoose.Schema(
             required: true,
         },
         orderItems: [orderItem],
-        shippingAddress: {
-            receiver: {
-                type: String,
-                // required: true,
-            },
-            phone: {
-                type: String,
-                // required: true,
-            },
-            province: {
-                type: String,
-                // default: '',
-            },
-            district: {
-                type: String,
-                // default: '',
-            },
-            ward: {
-                type: String,
-                // default: '',
-            },
-            specificAddress: {
-                type: String,
-                // default: '',
-            },
-        },
+        // shippingAddress: {
+        //     receiver: {
+        //         type: String,
+        //         // required: true,
+        //     },
+        //     phone: {
+        //         type: String,
+        //         // required: true,
+        //     },
+        //     province: {
+        //         type: String,
+        //         // default: '',
+        //     },
+        //     district: {
+        //         type: String,
+        //         // default: '',
+        //     },
+        //     ward: {
+        //         type: String,
+        //         // default: '',
+        //     },
+        //     specificAddress: {
+        //         type: String,
+        //         // default: '',
+        //     },
+        // },
         delivery: {
             type: mongoose.Schema.Types.ObjectId,
             required: true,

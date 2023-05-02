@@ -7,7 +7,7 @@ const deliverySchema = mongoose.Schema(
             required: true,
             ref: 'Order',
         },
-        user: {
+        client: {
             type: mongoose.Schema.Types.ObjectId,
             required: true,
             ref: 'User',
@@ -21,11 +21,14 @@ const deliverySchema = mongoose.Schema(
         to_address: {
             type: String,
         },
-        to_ward_code: {
-            type: Number,
+        to_province_name: {
+            type: String,
         },
-        to_district_id: {
-            type: Number,
+        to_district_name: {
+            type: String,
+        },
+        to_ward_name: {
+            type: String,
         },
         weight: {
             type: Number,
@@ -42,8 +45,21 @@ const deliverySchema = mongoose.Schema(
         service_id: {
             type: Number,
         },
+        note: {
+            type: String,
+        },
         required_note: {
             type: String,
+            required: true,
+            enum: [
+                'CHOTHUHANG',
+                'CHOXEMHANGKHONGTHU',
+                'KHONGCHOXEMHANG',
+                'CHOTHUHANG',
+                'CHOXEMHANGKHONGTHU',
+                'KHONGCHOXEMHANG',
+            ],
+            default: 'KHONGCHOXEMHANG',
         },
         content: {
             type: String,
@@ -56,7 +72,10 @@ const deliverySchema = mongoose.Schema(
                 category: { type: String },
             },
         ],
-        order_date: {
+        insurance_value: {
+            type: Number,
+        },
+        start_date: {
             type: Date,
         },
         leadTime: {

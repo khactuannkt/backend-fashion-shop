@@ -7,13 +7,21 @@ const discountCodeSchema = new mongoose.Schema(
             required: true,
             unique: true,
         },
+        name: {
+            type: String,
+        },
         discountType: {
             type: String,
             required: true,
-            enum: ['percent', 'money'],
-            default: 'money',
+            enum: [1, 2],
+            default: 1,
         },
         discount: {
+            type: Number,
+            required: true,
+            default: 0,
+        },
+        maximumDiscount: {
             type: Number,
             required: true,
             default: 0,
@@ -39,6 +47,12 @@ const discountCodeSchema = new mongoose.Schema(
             type: Number,
             required: true,
             default: 0,
+        },
+        applyFor: {
+            type: Number,
+            required: true,
+            enum: [1, 2],
+            default: 1,
         },
         usedBy: [
             {

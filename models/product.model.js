@@ -59,6 +59,24 @@ const productSchema = mongoose.Schema(
         quantity: {
             type: Number,
             required: true,
+            default: 0,
+        },
+        weight: {
+            type: Number,
+            required: true,
+            default: 0,
+        },
+        length: {
+            type: Number,
+            default: 0,
+        },
+        width: {
+            type: Number,
+            default: 0,
+        },
+        height: {
+            type: Number,
+            default: 0,
         },
         variants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Variant' }],
         reviews: [reviewSchema],
@@ -76,6 +94,7 @@ const productSchema = mongoose.Schema(
             type: Number,
             default: 0,
         },
+
         deleted: {
             type: Date,
             default: null,

@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import { GHN_Request } from '../utils/request.js';
 import { validationResult } from 'express-validator';
-import { config } from 'dotenv';
 
 const getDistrict = async (req, res) => {
     // Validate the request data using express-validator
@@ -65,18 +64,13 @@ const getProvince = async (req, res) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-    await GHN_Request.get('/master-data/province', config)
+    await GHN_Request.get('/master-data/province')
         .then((response) => {
             res.status(200).json({ message: 'Success', data: { provinces: response.data.data } });
         })
         .catch((error) => {
-            if (error?.response?.status && error.response.status == '400') {
-                res.status(error.response.status);
-                throw new Error('Mã tỉnh/thành phố không tồn tại');
-            } else {
-                res.status(500);
-                throw new Error(error.response.message || error.message);
-            }
+            res.status(500);
+            throw new Error(error.response.message || error.message);
         });
 };
 const calculateFee = async (req, res) => {
