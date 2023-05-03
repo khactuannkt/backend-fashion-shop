@@ -41,36 +41,28 @@ const userSchema = mongoose.Schema(
         birthday: {
             type: Date,
         },
-        // country: {
-        //     type: String,
-        //     required: false,
-        // },
-        // city: {
-        //     type: String,
-        //     required: false,
-        // },
-        // address: {
-        //     type: String,
-        //     required: false,
-        // },
-        address: {
-            province: {
-                type: String,
-                default: '',
+        address: [
+            {
+                name: { type: String, required: true },
+                phone: { type: String, required: true },
+                province: {
+                    id: { type: Number, required: true },
+                    name: { type: String },
+                },
+                district: {
+                    id: { type: Number, required: true },
+                    name: { type: String },
+                },
+                ward: {
+                    id: { type: Number, required: true },
+                    name: { type: String },
+                },
+                specificAddress: {
+                    type: String,
+                    required: true,
+                },
             },
-            district: {
-                type: String,
-                default: '',
-            },
-            ward: {
-                type: String,
-                default: '',
-            },
-            specificAddress: {
-                type: String,
-                default: '',
-            },
-        },
+        ],
         discountCode: [
             {
                 type: mongoose.Schema.Types.ObjectId,

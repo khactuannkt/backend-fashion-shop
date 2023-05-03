@@ -6,10 +6,11 @@ import YAML from 'yamljs';
 import swaggerUiExpress from 'swagger-ui-express';
 import connectDatabase from './config/db.config.js';
 import { errorHandler, notFound } from './middleware/error.middleware.js';
-
+import bodyParser from 'body-parser';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import routes from './routes/index.js';
+import multer from 'multer';
 
 dotenv.config();
 connectDatabase();
@@ -21,6 +22,12 @@ app.use(morgan('dev'));
 
 //handle route for api v1.0
 routes(app);
+
+// parse application/x-www-form-urlencoded
+app.use(bodyParser.urlencoded({ extended: true }));
+
+// parse application/json
+app.use(bodyParser.json());
 
 // swagger;
 const __filename = fileURLToPath(import.meta.url);

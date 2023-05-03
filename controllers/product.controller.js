@@ -13,72 +13,77 @@ import differenceBy from 'lodash.differenceby';
 import { url } from 'inspector';
 
 const getProducts = async (req, res) => {
-    // const limit = Number(req.query.limit) || 12;
-    // const rating = Number(req.query.rating) || 0;
-    // const maxPrice = Number(req.query.maxPrice) || 0;
-    // const minPrice = Number(req.query.minPrice) || 0;
-    // const Sort = validateConstants(productQueryParams, 'sort', req.query.sortBy);
-    const page = Number(req.query.pageNumber) || 1;
-
-    const pageSize = Number(req.query.pageSize) || 12; //EDIT HERE
-    const dateOrderSortBy = validateConstants(productQueryParams, 'date', req.query.dateOrder);
-    const priceOrderSortBy = validateConstants(productQueryParams, 'price', req.query.priceOrder);
-    const bestSellerSortBy = validateConstants(productQueryParams, 'totalSales', req.query.bestSeller);
-    const productSortBy = { ...bestSellerSortBy, ...priceOrderSortBy, ...dateOrderSortBy };
-    /* let statusFilter;
-    if (!req.user || req.user.isAdmin == false) {
+    const limit = parseInt(req.query.limit) || 12;
+    const rating = parseInt(req.query.rating) || 0;
+    const maxPrice = parseInt(req.query.maxPrice) || 0;
+    const minPrice = parseInt(req.query.minPrice) || 0;
+    const page = parseInt(req.query.page) || 0;
+    const status = req.query.status || null;
+    const sortBy = validateConstants(productQueryParams, 'sort', req.query.sortBy);
+    let statusFilter;
+    if (!req.user || !req.user.role === 'admin' || !req.user.role === 'staff') {
         statusFilter = validateConstants(productQueryParams, 'status', 'default');
-    } else if (req.user.isAdmin) {
-        statusFilter = validateConstants(productQueryParams, 'status', req.query.status);
-    } */
+    } else if (req.user.role === 'admin' || req.user.role === 'staff') {
+        statusFilter = validateConstants(productQueryParams, 'status', status);
+    }
+
     const keyword = req.query.keyword
         ? {
-              name: {
-                  $regex: req.query.keyword,
-                  $options: 'i',
-              },
+              $or: [
+                  {
+                      name: {
+                          $regex: req.query.keyword,
+                          $options: 'i',
+                      },
+                  },
+                  {
+                      keyword: {
+                          $elemMatch: {
+                              $regex: req.query.keyword,
+                              $options: 'i',
+                          },
+                      },
+                  },
+              ],
           }
-        : {}; // TODO: return cannot find product
+        : {};
 
     //Check if category existed
-    const categoryId = req.query.category || null;
-    const category = await Category.findOne({ _id: categoryId });
-    const categoryFilter = category ? { category: category } : {};
-    /* if (!req.query.category) {
-        categoryName = 'All';
-    }
+    let categoryName = req.query.category || null;
     let categoryIds;
-    if (categoryName == 'All') {
-        //categoryIds = await Category.find({ ...statusFilter }).select({ _id: 1 });
+    if (!categoryName) {
+        categoryIds = await Category.find({ disabled: false }).select({ _id: 1 });
     } else {
-        //categoryIds = await Category.find({ name: categoryName, ...statusFilter }).select({ _id: 1 });
-        categoryIds = await Category.find({ name: categoryName }).select({ _id: 1 });
-    } */
-    //(categoryFilter);
+        categoryIds = await Category.find({ slug: categoryName, disabled: false }).select({ _id: 1 });
+    }
+    const categoryFilter = categoryIds.length > 0 ? { category: categoryIds } : {};
+
     const productFilter = {
         ...keyword,
         ...categoryFilter,
-        ...priceRangeFilter(parseInt(req.query.minPrice), parseInt(req.query.maxPrice)),
-        ...ratingFilter(parseInt(req.query.rating)),
+        ...priceRangeFilter(minPrice, maxPrice),
+        ...ratingFilter(rating),
     };
     const count = await Product.countDocuments(productFilter);
     //Check if product match keyword
     if (count == 0) {
         res.status(204);
-        res.json({ message: 'No products found for this keyword' });
+        res.json({ message: 'Không có sản phẩm nào phù hợp với từ khóa tìm kiếm của bạn' });
     }
     //else
     const products = await Product.find(productFilter)
-        .limit(pageSize)
-        .skip(pageSize * (page - 1))
-        .sort(productSortBy)
+        .limit(limit)
+        .skip(limit * page)
+        .sort(sortBy)
         .populate('category')
         .populate('variants');
-    res.json({ products, page, pages: Math.ceil(count / pageSize), totalProducts: count });
+    res.json({
+        message: 'Success',
+        data: { products, page, pages: Math.ceil(count / limit), total: count },
+    });
 };
-
-const getProductRecommend = async (req, res) => {
-    const pageSize = Number(req.query.pageSize) || 20; //EDIT HERE
+const getProductSearchResults = async (req, res) => {
+    const limit = Number(req.query.limit) || 12; //EDIT HERE
     const keyword = req.query.keyword
         ? {
               name: {
@@ -94,10 +99,17 @@ const getProductRecommend = async (req, res) => {
     res.status(200);
     res.json(products);
 };
+const getProductRecommend = async (req, res) => {
+    const limit = Number(req.query.limit) || 12; //EDIT HERE
+
+    const products = await Product.find(productFilter).limit(limit);
+    res.status(200);
+    res.json({ message: 'Success', data: { products } });
+};
 
 const getAllProductsByAdmin = async (req, res) => {
     const products = await Product.find().sort({ createdAt: -1 });
-    res.json({ data: { products } });
+    res.json({ message: 'Success', data: { products } });
 };
 
 const getProductBySlug = async (req, res) => {
@@ -129,10 +141,19 @@ const createProduct = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+        if (req.files && req.files.length > 0) {
+            await req.files.map(async (image) => {
+                fs.unlink(image.path, (error) => {
+                    if (error) {
+                        throw new Error(error);
+                    }
+                });
+            });
+        }
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-    let { name, description, category, brand, keywords, variants } = req.body;
+    let { name, description, category, brand, weight, length, height, width, keywords, variants } = req.body;
 
     const findProduct = Product.findOne({ name });
     const findCategory = Category.findById(category);
@@ -174,54 +195,80 @@ const createProduct = async (req, res) => {
         res.status(400);
         throw new Error('Thiếu hình ảnh. Vui lòng đăng tải ít nhất 1 hình ảnh');
     }
-    const product = new Product({
-        name,
-        slug: generatedSlug,
-        description,
-        category,
-        images,
-        brand,
-        keywords,
-    });
-    // const newProduct = await product.save();
-    if (variants && variants.length > 0) {
-        const productVariants = variants.map((variant) => {
-            return new Variant({ product: product._id, ...variant });
-        });
-        const createdVariants = await Variant.insertMany(productVariants);
-        if (createdVariants.length === 0) {
-            res.status(400);
-            throw new Error('Thông tin sản phẩm không hợp lệ');
-        }
-        let minPriceSale = createdVariants[0].priceSale;
-        let minPrice = createdVariants[0].price;
-        let totalQuantity = 0;
-        const variantIds = createdVariants.map((variant) => {
-            totalQuantity += variant.quantity;
-            if (minPriceSale > variant.priceSale) {
-                minPriceSale = variant.priceSale;
-                minPrice = variant.price;
+
+    const session = await mongoose.startSession();
+    const transactionOptions = {
+        readPreference: 'primary',
+        readConcern: { level: 'local' },
+        writeConcern: { w: 'majority' },
+    };
+    try {
+        await session.withTransaction(async () => {
+            const product = new Product({
+                name,
+                slug: generatedSlug,
+                description,
+                category,
+                weight,
+                length,
+                height,
+                width,
+                images,
+                brand,
+                keywords,
+            });
+            if (variants && variants.length > 0) {
+                let minPriceSale = 0;
+                let minPrice = 0;
+                let totalQuantity = 0;
+                const productVariants = variants.map((variant) => {
+                    totalQuantity += variant.quantity;
+                    if (minPriceSale > variant.priceSale) {
+                        minPriceSale = variant.priceSale;
+                        minPrice = variant.price;
+                    }
+                    return new Variant({ product: product._id, ...variant });
+                });
+                const variantIds = await Variant.insertMany(productVariants).session(session);
+                if (variantIds.length < variants.length) {
+                    await session.abortTransaction();
+                    res.status(400);
+                    throw new Error('Thông tin sản phẩm không hợp lệ');
+                }
+                product.variants = variantIds;
+                product.price = minPrice;
+                product.priceSale = minPriceSale;
+                product.quantity = totalQuantity;
             }
-            return variant._id;
-        });
-        product.variants = variantIds;
-        product.price = minPrice;
-        product.priceSale = minPriceSale;
-        product.quantity = totalQuantity;
+            const newProduct = await (await product.save({ session })).populate('variants');
+
+            res.status(201).json({ message: 'Thêm sản phẩm thành công', data: { newProduct } });
+        }, transactionOptions);
+    } catch (error) {
+        next(error);
+    } finally {
+        session.endSession();
     }
-    const newProduct = await (await product.save()).populate('variants');
-    res.status(201).json({ message: 'Thêm sản phẩm thành công', data: { newProduct } });
 };
 
 const updateProduct = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+        if (req.files && req.files.length > 0) {
+            await req.files.map(async (image) => {
+                fs.unlink(image.path, (error) => {
+                    if (error) {
+                        throw new Error(error);
+                    }
+                });
+            });
+        }
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
 
-    const { name, description, category, images, brand, keywords, variants } = req.body;
+    const { name, description, category, images, brand, weight, length, height, width, keywords, variants } = req.body;
 
     const currentProduct = await Product.findById(req.params.id);
     if (!currentProduct) {
@@ -454,6 +501,7 @@ const deleteProduct = async (req, res) => {
 const productController = {
     getProductBySlug,
     getProductById,
+    getProductSearchResults,
     getProducts,
     getProductRecommend,
     getAllProductsByAdmin,

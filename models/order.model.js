@@ -8,10 +8,10 @@ const orderStatus = mongoose.Schema(
             enum: ['placed', 'confirm', 'delivering', 'delivered', 'cancelled', 'completed'],
             default: 'placed',
         },
-        description: {
-            type: String,
-            required: false,
-            default: '',
+        updateBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            required: true,
+            ref: 'User',
         },
     },
     {
@@ -19,11 +19,6 @@ const orderStatus = mongoose.Schema(
     },
 );
 const orderItem = mongoose.Schema({
-    // variant: {
-    //     type: mongoose.Schema.Types.ObjectId,
-    //     required: true,
-    //     ref: 'Variant',
-    // },
     product: {
         type: mongoose.Schema.Types.ObjectId,
         required: true,
@@ -69,32 +64,7 @@ const orderSchema = mongoose.Schema(
             required: true,
         },
         orderItems: [orderItem],
-        // shippingAddress: {
-        //     receiver: {
-        //         type: String,
-        //         // required: true,
-        //     },
-        //     phone: {
-        //         type: String,
-        //         // required: true,
-        //     },
-        //     province: {
-        //         type: String,
-        //         // default: '',
-        //     },
-        //     district: {
-        //         type: String,
-        //         // default: '',
-        //     },
-        //     ward: {
-        //         type: String,
-        //         // default: '',
-        //     },
-        //     specificAddress: {
-        //         type: String,
-        //         // default: '',
-        //     },
-        // },
+
         delivery: {
             type: mongoose.Schema.Types.ObjectId,
             required: true,
@@ -108,10 +78,6 @@ const orderSchema = mongoose.Schema(
             type: Number,
             required: true,
             default: 0.0,
-        },
-        discountCode: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'DiscountCode',
         },
         totalDiscount: {
             type: Number,

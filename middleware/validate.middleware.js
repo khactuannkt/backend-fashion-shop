@@ -98,6 +98,14 @@ const validate = {
     ],
 
     //====================Validate Category==================
+    getCategoryById: [
+        check('id').custom((id) => {
+            if (!ObjectId.isValid(id)) {
+                throw new Error('ID không hợp lệ');
+            }
+            return true;
+        }),
+    ],
     createCategory: [
         check('name').trim().not().isEmpty().withMessage('Name is required'),
         check('level').custom((level) => {
@@ -359,24 +367,24 @@ const validate = {
                 }
                 return true;
             }),
-        check('address').custom((address) => {
-            if (!address) {
-                throw new Error('Địa chỉ không được để trống');
-            }
-            if (!address.province || address.province.trim() === '') {
-                throw new Error('Tỉnh/Thành phố không được để trống');
-            }
-            if (!address.district || address.district.trim() === '') {
-                throw new Error('Quận/Huyện không được để trống');
-            }
-            if (!address.ward || address.ward.trim() === '') {
-                throw new Error('Phường/Xã không được để trống');
-            }
-            if (!address.specificAddress || address.specificAddress.trim() === '') {
-                throw new Error('Địa chỉ chi tiết không được để trống');
-            }
-            return true;
-        }),
+        // check('address').custom((address) => {
+        //     if (!address) {
+        //         throw new Error('Địa chỉ không được để trống');
+        //     }
+        //     if (!address.province || address.province.trim() === '') {
+        //         throw new Error('Tỉnh/Thành phố không được để trống');
+        //     }
+        //     if (!address.district || address.district.trim() === '') {
+        //         throw new Error('Quận/Huyện không được để trống');
+        //     }
+        //     if (!address.ward || address.ward.trim() === '') {
+        //         throw new Error('Phường/Xã không được để trống');
+        //     }
+        //     if (!address.specificAddress || address.specificAddress.trim() === '') {
+        //         throw new Error('Địa chỉ chi tiết không được để trống');
+        //     }
+        //     return true;
+        // }),
     ],
     forgotPassword: [
         check('email')
@@ -434,32 +442,53 @@ const validate = {
                 return true;
             }),
         check('brand').trim().notEmpty().withMessage('Thương hiệu sản phẩm không được để trống'),
+        check('weight')
+            .notEmpty()
+            .withMessage('Cân nặng của sản phẩm không được để trống')
+            .isInt({ min: 1 })
+            .withMessage('Cân nặng của sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 1'),
+        check('height')
+            .notEmpty()
+            .withMessage('Chiều cao của sản phẩm không được để trống')
+            .isInt({ min: 0.01 })
+            .withMessage('Chiều cao của sản phẩm phải là số nguyên và phải lớn hơn 0'),
+        check('length')
+            .notEmpty()
+            .withMessage('Chiều dài của sản phẩm không được để trống')
+            .isInt({ min: 0.01 })
+            .withMessage('Chiều dài của sản phẩm phải là số nguyên và phải lớn hơn 0'),
+        check('width')
+            .notEmpty()
+            .withMessage('Chiều rộng của sản phẩm không được để trống')
+            .isInt({ min: 0.01 })
+            .withMessage('Chiều rộng của sản phẩm phải là số nguyên và phải lớn hơn 0'),
+
         check('keywords').isArray().withMessage('Danh sách từ khóa sản phẩm phải là mảng '),
         check('variants')
-            .isArray()
-            .withMessage('Danh sách biến thể phải là mảng')
             .notEmpty()
-            .withMessage('Danh sách các biến thể không được để trống'),
+            .withMessage('Danh sách các biến thể không được để trống')
+            .isArray()
+            .withMessage('Danh sách biến thể phải là mảng'),
         check('variants.*.price')
             .notEmpty()
             .withMessage('Giá của các biến thể sản phẩm không được để trống')
             .isInt({ min: 0 })
-            .withMessage('Giá của các biến thể sản phẩm phải là số nguyên và phài lớn hơn hoặc bằng 0'),
+            .withMessage('Giá của các biến thể sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0'),
         check('variants.*.priceSale')
             .notEmpty()
             .withMessage('Giá đã giảm của các biến thể sản phẩm không được để trống')
             .isInt({ min: 0 })
-            .withMessage('Giá đã giảm của các biến thể sản phẩm phải là số nguyên và phài lớn hơn hoặc bằng 0'),
+            .withMessage('Giá đã giảm của các biến thể sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0'),
         check('variants.*.quantity')
             .notEmpty()
             .withMessage('Số lượng các biến thể sản phẩm không được để trống')
             .isInt({ min: 0 })
-            .withMessage('Số lượng các biến thể sản phẩm phải là số nguyên và phài lớn hơn hoặc bằng 0'),
+            .withMessage('Số lượng các biến thể sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0'),
         check('variants.*.attributes')
-            .isArray()
-            .withMessage('Danh sách thuộc tính của biến thể phải là mảng')
             .notEmpty()
-            .withMessage('Danh sách thuộc tính các biến thể không được để trống'),
+            .withMessage('Danh sách thuộc tính các biến thể không được để trống')
+            .isArray()
+            .withMessage('Danh sách thuộc tính của biến thể phải là mảng'),
         check('variants.*.attributes.*.name')
             .trim()
             .notEmpty()
@@ -847,6 +876,5 @@ const validate = {
             .isString()
             .withMessage('Mã phường/xã của người nhận phải là chuỗi ký tự'),
     ],
-    createShippingOrder: [],
 };
 export default validate;

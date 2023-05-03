@@ -1,24 +1,18 @@
 const productQueryParams = {
-    price: {
+    sort: {
         asc: { priceSale: 'asc' },
         desc: { priceSale: 'desc' },
-        default: {},
-    },
-    date: {
         newest: { createdAt: 'desc' },
         latest: { createdAt: 'asc' },
-        default: { createdAt: 'desc' },
+        total_sales: { totalSales: 'desc' },
+        default: { totalSales: 'desc' },
     },
-    totalSales: {
-        true: { totalSales: 'desc' },
-        default: {},
-    },
-    /* status: {
+    status: {
         disabled: { isDisabled: true },
-        notDisabled: { isDisabled: false },
+        not_disabled: { isDisabled: false },
         all: {},
         default: { isDisabled: false },
-    }, */
+    },
 };
 
 const commentQueryParams = {
@@ -117,7 +111,7 @@ const validateConstants = function (reference, constant, constantField) {
 };
 
 const priceRangeFilter = (minPrice, maxPrice) => {
-    if (minPrice >= 0 && maxPrice >= 0) {
+    if (minPrice >= 0 && maxPrice > 0) {
         if (minPrice > maxPrice) {
             const temp = minPrice;
             minPrice = maxPrice;

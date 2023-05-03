@@ -7,16 +7,22 @@ import validate from '../middleware/validate.middleware.js';
 
 const productRouter = express.Router();
 productRouter.get('/slug/:slug', asyncHandler(productController.getProductBySlug));
-productRouter.get('/admin', protect, auth('staff', 'admin'), asyncHandler(productController.getAllProductsByAdmin));
+productRouter.get('/search', asyncHandler(productController.getProductSearchResults));
 productRouter.get('/recommend', asyncHandler(productController.getProductRecommend));
+productRouter.get(
+    '/all-products',
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(productController.getAllProductsByAdmin),
+);
 productRouter.get('/:id', validate.getProductById, asyncHandler(productController.getProductById));
 productRouter.get('/', asyncHandler(productController.getProducts));
 productRouter.post(
     '/',
+    multerUpload.array('imageFile'),
     validate.createProduct,
     protect,
     auth('staff', 'admin'),
-    multerUpload.array('productImage'),
     asyncHandler(productController.createProduct),
 );
 productRouter.post(
@@ -28,10 +34,10 @@ productRouter.post(
 );
 productRouter.put(
     '/:id',
+    multerUpload.array('imageFile'),
     validate.updateProduct,
     protect,
     auth('staff', 'admin'),
-    multerUpload.array('productImage'),
     asyncHandler(productController.updateProduct),
 );
 productRouter.patch(

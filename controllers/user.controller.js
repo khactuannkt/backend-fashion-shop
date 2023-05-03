@@ -356,7 +356,7 @@ const updateProfile = async (req, res) => {
         user.gender = req.body.gender || user.gender;
         // user.avatar = req.body.avatar || user.avatar;
         user.birthday = req.body.birthday || user.birthday;
-        user.address = req.body.address || user.address;
+        // user.address = req.body.address || user.address;
         const updatedUser = await user.save();
         res.status(200).json({
             message: 'Cập nhật thông tin tài khoản thành công',
@@ -370,7 +370,7 @@ const updateProfile = async (req, res) => {
                     avatar: updatedUser.avatar,
                     gender: updatedUser.gender,
                     birthday: updatedUser.birthday,
-                    address: updatedUser.address,
+                    // address: updatedUser.address,
                     createdAt: updatedUser.createdAt,
                     updatedAt: updatedUser.updatedAt,
                 },

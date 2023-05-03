@@ -128,69 +128,7 @@ const checkOrderProductList = async (size, orderItems) => {
     });
     return result;
 };
-const checkDiscountCode = async (discountCode, orderedProductList, totalPrice, user, session) => {
-    const result = {
-        error: 0,
-        message: '',
-        discount: 0,
-        discountCode: null,
-    };
-    try {
-        const discountCodeExist = await DiscountCode.findOne({ code: String(discountCode), disabled: false });
-        if (!discountCodeExist) {
-            throw new Error('Mã giảm giá không tồn tại');
-        }
-        if (discountCodeExist.startDate > new Date()) {
-            throw new Error(`Mã giảm giá có hiệu lực từ ngày ${Date(discountCode.startDate)}`);
-        }
-        if (discountCodeExist.endDate < new Date()) {
-            throw new Error('Mã giảm giá đã hết hạn');
-        }
-        if (discountCodeExist.isUsageLimit && !(discountCodeExist.usageLimit <= discountCodeExist.used)) {
-            throw new Error('Mã giảm giá đã được sử dụng hết');
-        }
-        if (discountCodeExist.usedBy.includes(user)) {
-            throw new Error('Mỗi mã giảm giá chỉ được sử dụng 1 lần. Bạn đã sử dụng mã này rồi');
-        }
-        // Tổng giá sản phẩm nằm trong danh sách được giảm giá của discount code
-        let totalPriceProductDiscounted = 0;
-        if (discountCodeExist.applyFor == 1) {
-            totalPriceProductDiscounted = totalPrice;
-        } else {
-            let count = 0;
-            orderedProductList.map((item) => {
-                if (discountCodeExist.applicableProducts.includes(item._id)) {
-                    totalPriceProductDiscounted += item.priceSale * item.quantity;
-                    count++;
-                }
-            });
-            if (count == 0) {
-                throw new Error('Mã giảm giá không được áp dụng cho các sản phẩm này');
-            }
-        }
-        if (discountCodeExist.discountType == TYPE_DISCOUNT_MONEY) {
-            if (totalPriceProductDiscounted >= discountCodeExist.discount) {
-                result.discount = discountCodeExist.discount;
-            } else {
-                result.discount = totalPriceProductDiscounted;
-            }
-        } else if (discountCodeExist.discountType == TYPE_DISCOUNT_PERCENT) {
-            result.discount = ((totalPriceProductDiscounted * discountCodeExist.discount) / 100).toFixed(3);
-            if (result.discount > discountCodeExist.maximumDiscount) {
-                result.discount = discountCodeExist.maximumDiscount;
-            }
-        }
-        discountCodeExist.usedBy.push(user);
-        discountCodeExist.used++;
-        result.discountCode = await discountCodeExist.save({ session });
-        return result;
-    } catch (error) {
-        result.error = 1;
-        result.message = error.message;
-        result.discount = 0;
-        return result;
-    }
-};
+
 const calculateFee = async (shippingAddress, size, price) => {
     const deliveryFee = {
         fee: 0,
@@ -231,56 +169,6 @@ const calculateFee = async (shippingAddress, size, price) => {
     return deliveryFee;
 };
 
-const createOrderItems = async (session, orderItems) => {
-    const result = {
-        error: 0,
-        dataOrderItem: [],
-        message: '',
-    };
-    try {
-        await orderItems.map(async (orderItem) => {
-            const orderedVariant = await Variant.findOneAndUpdate(
-                {
-                    _id: orderItem.variant,
-                    quantity: { $gte: orderItem.quantity },
-                    disabled: false,
-                    deleted: { $eq: null },
-                },
-                { $inc: { quantity: -orderItem.quantity } },
-                { new: true },
-            ).session(session);
-            if (!orderedVariant) {
-                throw new Error(`Sản phẩm có ID "${orderItem.variant}" đã hết hàng`);
-            }
-            const orderedProduct = await Product.findOneAndUpdate(
-                { _id: orderItem.product, disabled: false, deleted: { $eq: null } },
-                { $inc: { totalSales: +orderItem.quantity, quantity: -orderItem.quantity } },
-            ).session(session);
-            // await Promise.all([orderedVariant, orderedProduct]);
-            if (!orderedProduct) {
-                throw new Error(`Sản phẩm có ID "${orderItem.variant}" không tồn tại`);
-            }
-
-            const newOrderItem = {
-                product: orderedProduct._id,
-                name: orderedProduct.name,
-                attributes: orderedVariant.attributes,
-                image: orderedVariant.image || null,
-                price: orderedVariant.priceSale,
-                quantity: orderItem.quantity,
-            };
-            if (!newOrderItem.image) {
-                newOrderItem.image = orderedProduct.images[0] || null;
-            }
-            result.dataOrderItem.push(newOrderItem);
-        });
-        return result;
-    } catch (error) {
-        result.error = 1;
-        result.message = error.message;
-        return result;
-    }
-};
 const estimatedDeliveryTime = async (shippingAddress) => {
     const result = {
         leadTime: null,
@@ -390,106 +278,7 @@ const getAddressName = async (shippingAddress) => {
         return result;
     }
 };
-const createShippingInfor = async (size, address, leadTime, orderInfor, session) => {
-    const result = {
-        error: 0,
-        shippingInfor: null,
-        message: '',
-    };
-    try {
-        const newShippingInfor = new Delivery({
-            order: orderInfor._id,
-            client: user,
-            to_name: address.to_name,
-            to_phone: address.to_phone,
-            to_province_name: address.provinceName,
-            to_district_name: address.districtName,
-            to_ward_name: address.wardName,
-            to_province_id: address.to_province_id,
-            to_district_id: address.to_district_id,
-            to_ward_code: address.to_ward_code,
-            to_address: address.to_address,
-            note: address.note,
-            service_id: 53350,
-            items: orderInfor.orderItems,
-            leadTime,
-            height: size.height,
-            length: size.length,
-            weight: size.weight,
-            width: size.width,
-            insurance_value: size.price,
-        });
-        const newShipping = await newShippingInfor.save({ session });
-        result.shippingInfor = newShipping;
-        return result;
-    } catch (error) {
-        result.error = 1;
-        result.message = 'Tạo thông tin giao hàng không thành công';
-        return result;
-    }
-};
-const createPaymentInfor = async (orderId, userId, paymentMethod, amount, session) => {
-    const result = {
-        error: 0,
-        paymentInformation: null,
-        message: '',
-    };
-    try {
-        const newPaymentInformation = new Payment({
-            user: userId,
-            order: orderId,
-            paymentAmount: amount,
-        });
-        if (paymentMethod == PAYMENT_WITH_CASH) {
-            newPaymentInformation.paymentMethod = 1;
-        } else if (paymentMethod == PAYMENT_WITH_MOMO) {
-            newPaymentInformation.paymentMethod = 2;
-            //Create payment information with momo
-            const redirectUrl = `${process.env.CLIENT_PAGE_URL}/order/${orderId}`;
-            const ipnUrl = `${process.env.API_URL}/api/v1/orders/${orderId}/payment-notification`;
-            const requestId = uuidv4();
-            const requestBody = createRequestBody(
-                orderId,
-                requestId,
-                'Thanh toán đơn hàng tại Fashion Shop',
-                amount,
-                redirectUrl,
-                ipnUrl,
-            );
-            const config = {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Content-Length': Buffer.byteLength(requestBody),
-                },
-            };
-            await momo_Request
-                .post('/create', requestBody, config)
-                .then((response) => {
-                    if (response.data.data.resultCode == 0) {
-                        newPaymentInformation.payUrl = response.data.data.payUrl;
-                        newPaymentInformation.requestId = requestId;
-                    } else {
-                        throw new Error('Gặp lỗi khi tạo thông tin thanh toán');
-                    }
-                })
-                .catch((error) => {
-                    throw new Error(error.response.message || error.message);
-                });
-        } else {
-            throw new Error('Phương thức thanh toán không hợp lệ');
-        }
-        const createOrderPaymentInformation = await newPaymentInformation.save({ session });
-        if (!createOrderPaymentInformation) {
-            throw new Error('Gặp lỗi khi tạo thông tin thanh toán');
-        }
-        result.paymentInformation = createOrderPaymentInformation;
-        return result;
-    } catch (error) {
-        result.error = 1;
-        result.message = error.message;
-        return result;
-    }
-};
+
 const createOrder = async (req, res, next) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
@@ -498,10 +287,7 @@ const createOrder = async (req, res, next) => {
         return res.status(400).json({ message: message });
     }
     const { shippingAddress, paymentMethod, orderItems, discountCode } = req.body;
-    // const orderItemIds = [];
-    // orderItems.map((orderItem) => {
-    //     orderItemIds.push(orderItem.variant);
-    // });
+
     const size = {
         height: 0,
         weight: 0,
@@ -536,13 +322,12 @@ const createOrder = async (req, res, next) => {
     }
     const address = addressResult.address;
 
+    const session = await mongoose.startSession();
     const transactionOptions = {
         readPreference: 'primary',
         readConcern: { level: 'local' },
         writeConcern: { w: 'majority' },
     };
-    const session = await mongoose.startSession();
-    // session.startTransaction(transactionOptions);
 
     try {
         await session.withTransaction(async () => {
@@ -599,7 +384,7 @@ const createOrder = async (req, res, next) => {
                 shippingPrice: deliveryFee.fee,
                 totalDiscount: 0,
                 status: 'placed',
-                statusHistory: { status: 'placed', description: '' },
+                statusHistory: { status: 'placed', updateBy: req.user._id },
             });
 
             //Check discount code
@@ -677,7 +462,6 @@ const createOrder = async (req, res, next) => {
                 //     res.status(400);
                 //     throw new Error(checkDiscount.message);
                 // }
-                orderInfor.discountCode = discountCodeExist._id;
                 orderInfor.totalDiscount = discount;
             }
 
@@ -775,7 +559,7 @@ const createOrder = async (req, res, next) => {
                 { user: req.user._id },
                 { $pull: { cartItems: { variant: { $in: productCheckResult.orderItemIds } } } },
             ).session(session);
-            const newOrder = await orderInfor.save({ session });
+            const newOrder = (await orderInfor.save({ session })).populate('delivery', 'paymentInformation');
             if (!newOrder) {
                 await session.abortTransaction();
                 res.status(500);
@@ -785,7 +569,6 @@ const createOrder = async (req, res, next) => {
             await session.commitTransaction();
         }, transactionOptions);
     } catch (error) {
-        console.log(error);
         next(error);
     } finally {
         session.endSession();

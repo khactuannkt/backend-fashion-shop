@@ -7,10 +7,10 @@ import deliveryController from '../controllers/delivery.controller.js';
 const deliveryRouter = express.Router();
 
 deliveryRouter.get('/address/province', asyncHandler(deliveryController.getProvince));
-deliveryRouter.get('/address/district', validate.getDistrict, asyncHandler(deliveryController.getDistrict));
-deliveryRouter.get('/address/ward', validate.getWard, asyncHandler(deliveryController.getWard));
-deliveryRouter.get('/shipping-order/fee', validate.calculateFee, asyncHandler(deliveryController.calculateFee));
-deliveryRouter.get(
+deliveryRouter.get('/address/:id/district', asyncHandler(deliveryController.getDistrict));
+deliveryRouter.get('/address/:id/ward', asyncHandler(deliveryController.getWard));
+deliveryRouter.post('/shipping-order/fee', validate.calculateFee, asyncHandler(deliveryController.calculateFee));
+deliveryRouter.post(
     '/shipping-order/lead-time',
     validate.estimatedDeliveryTime,
     asyncHandler(deliveryController.estimatedDeliveryTime),

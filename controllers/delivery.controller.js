@@ -9,7 +9,7 @@ const getDistrict = async (req, res) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-    const province_id = Number(req.body.province_id) || null;
+    const province_id = Number(req.params.id) || null;
     const config = {
         data: JSON.stringify({
             province_id,
@@ -36,7 +36,7 @@ const getWard = async (req, res) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-    const district_id = Number(req.body.district_id) || null;
+    const district_id = Number(req.params.id) || null;
 
     const config = {
         data: JSON.stringify({
