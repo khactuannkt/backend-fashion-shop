@@ -43,23 +43,26 @@ const userSchema = mongoose.Schema(
         },
         address: [
             {
-                name: { type: String, required: true },
-                phone: { type: String, required: true },
+                name: { type: String },
+                phone: { type: String },
                 province: {
-                    id: { type: Number, required: true },
+                    id: { type: Number },
                     name: { type: String },
                 },
                 district: {
-                    id: { type: Number, required: true },
+                    id: { type: Number },
                     name: { type: String },
                 },
                 ward: {
-                    id: { type: Number, required: true },
+                    id: { type: Number },
                     name: { type: String },
                 },
                 specificAddress: {
                     type: String,
-                    required: true,
+                },
+                isDefault: {
+                    type: Boolean,
+                    default: false,
                 },
             },
         ],

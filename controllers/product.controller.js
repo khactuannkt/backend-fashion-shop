@@ -50,11 +50,17 @@ const getProducts = async (req, res) => {
 
     //Check if category existed
     let categoryName = req.query.category || null;
-    let categoryIds;
+    let categoryIds = [];
     if (!categoryName) {
         categoryIds = await Category.find({ disabled: false }).select({ _id: 1 });
     } else {
-        categoryIds = await Category.find({ slug: categoryName, disabled: false }).select({ _id: 1 });
+        const findCategory = await Category.findOne({ _id: categoryName, disabled: false }).select({
+            _id: 1,
+            children: 1,
+        });
+        if (findCategory) {
+            categoryIds.push(findCategory._id, ...findCategory.children);
+        }
     }
     const categoryFilter = categoryIds.length > 0 ? { category: categoryIds } : {};
 
@@ -68,7 +74,7 @@ const getProducts = async (req, res) => {
     //Check if product match keyword
     if (count == 0) {
         res.status(204);
-        res.json({ message: 'Không có sản phẩm nào phù hợp với từ khóa tìm kiếm của bạn' });
+        throw new Error('Không có sản phẩm nào!');
     }
     //else
     const products = await Product.find(productFilter)
@@ -77,7 +83,8 @@ const getProducts = async (req, res) => {
         .sort(sortBy)
         .populate('category')
         .populate('variants');
-    res.json({
+
+    res.status(200).json({
         message: 'Success',
         data: { products, page, pages: Math.ceil(count / limit), total: count },
     });
@@ -166,6 +173,24 @@ const createProduct = async (req, res) => {
         res.status(400);
         throw new Error('Thể loại không tồn tại');
     }
+
+    const variantsValue = {};
+    variants.map((variant) => {
+        variant.attributes.map((attr) => {
+            if (!variantsValue[`${attr.name}`]) {
+                variantsValue[`${attr.name}`] = [];
+            }
+            variantsValue[`${attr.name}`].push(attr.value);
+        });
+    });
+    Object.keys(variantsValue).map((key) => {
+        const variantsSet = new Set(variantsValue[key]);
+        if (variantsSet.size < variantsValue[key].length) {
+            res.status(400);
+            throw new Error('Giá trị các biến thể không được trùng nhau');
+        }
+    });
+
     //generate slug
     let generatedSlug = slug(name);
     const existSlug = await Product.findOne({ slug: generatedSlug });
@@ -269,6 +294,23 @@ const updateProduct = async (req, res) => {
     }
 
     const { name, description, category, images, brand, weight, length, height, width, keywords, variants } = req.body;
+    //Check variants value
+    const variantsValue = {};
+    variants.map((variant) => {
+        variant.attributes.map((attr) => {
+            if (!variantsValue[`${attr.name}`]) {
+                variantsValue[`${attr.name}`] = [];
+            }
+            variantsValue[`${attr.name}`].push(attr.value);
+        });
+    });
+    Object.keys(variantsValue).map((key) => {
+        const variantsSet = new Set(variantsValue[key]);
+        if (variantsSet.size < variantsValue[key].length) {
+            res.status(400);
+            throw new Error('Giá trị các biến thể không được trùng nhau');
+        }
+    });
 
     const currentProduct = await Product.findById(req.params.id);
     if (!currentProduct) {
@@ -276,108 +318,144 @@ const updateProduct = async (req, res) => {
         throw new Error('Sản phẩm không tồn tại');
     }
 
-    //update product
-    if (currentProduct.name != name) {
-        const existedProduct = await Product.findOne({ name });
-        if (existedProduct) {
-            res.status(400);
-            throw new Error('Tên sản phẩm đã tồn tại');
-        }
-        currentProduct.name = name;
-        //generate slug
-        let generatedSlug = slug(name);
-        const existSlug = await Product.findOne({ slug: generatedSlug });
-        if (existSlug) {
-            generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
-        }
-        currentProduct.slug = generatedSlug;
-    }
-    if (currentProduct.category != category) {
-        const existedCategory = await Category.findById(category);
-        if (!existedCategory) {
-            res.status(400);
-            throw new Error('Thể loại không tồn tại');
-        }
-        currentProduct.category = existedCategory._id;
-    }
-    currentProduct.description = description || currentProduct.description;
-    currentProduct.brand = brand || currentProduct.brand;
-    currentProduct.keywords = keywords || currentProduct.keywords;
-
-    //update image
-    const updateImages = images || [];
-    if (req.files && req.files.length > 0) {
-        const uploadListImage = req.files.map(async (image) => {
-            const uploadImage = await cloudinaryUpload(image.path, 'FashionShop/products');
-            if (!uploadImage) {
-                res.status(500);
-                throw new Error('Error while uploading image');
+    const session = await mongoose.startSession();
+    const transactionOptions = {
+        readPreference: 'primary',
+        readConcern: { level: 'local' },
+        writeConcern: { w: 'majority' },
+    };
+    try {
+        await session.withTransaction(async () => {
+            //update product
+            if (currentProduct.name != name) {
+                const existedProduct = await Product.findOne({ name });
+                if (existedProduct) {
+                    await session.abortTransaction();
+                    res.status(400);
+                    throw new Error('Tên sản phẩm đã tồn tại');
+                }
+                currentProduct.name = name;
+                //generate slug
+                let generatedSlug = slug(name);
+                const existSlug = await Product.findOne({ slug: generatedSlug });
+                if (existSlug) {
+                    generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
+                }
+                currentProduct.slug = generatedSlug;
             }
-            fs.unlink(image.path, (error) => {
-                if (error) {
-                    throw new Error(error);
+            if (currentProduct.category != category) {
+                const existedCategory = await Category.findById(category);
+                if (!existedCategory) {
+                    await session.abortTransaction();
+                    res.status(400);
+                    throw new Error('Thể loại không tồn tại');
+                }
+                currentProduct.category = existedCategory._id;
+            }
+            currentProduct.description = description || currentProduct.description;
+            currentProduct.brand = brand || currentProduct.brand;
+            currentProduct.keywords = keywords || currentProduct.keywords;
+
+            //update image
+            const updateImages = images || [];
+            if (req.files && req.files.length > 0) {
+                const uploadListImage = req.files.map(async (image) => {
+                    const uploadImage = await cloudinaryUpload(image.path, 'FashionShop/products');
+                    if (!uploadImage) {
+                        await session.abortTransaction();
+                        res.status(500);
+                        throw new Error('Error while uploading image');
+                    }
+                    fs.unlink(image.path, async (error) => {
+                        if (error) {
+                            await session.abortTransaction();
+                            throw new Error(error);
+                        }
+                    });
+                    return uploadImage.secure_url;
+                });
+                const imageList = await Promise.all(uploadListImage);
+                updateImages.push(...imageList);
+            }
+            if (updateImages.length === 0) {
+                await session.abortTransaction();
+                res.status(400);
+                throw new Error('Thiếu hình ảnh. Vui lòng đăng tải ít nhất 1 hình ảnh của sản phẩm');
+            }
+            currentProduct.images = updateImages;
+            //update variant
+            const oldVariantsId = currentProduct.variants;
+
+            const updateVariantsId = [];
+            let totalQuantity = 0;
+            let minPriceSale = 0;
+            let minPrice = 0;
+            const variantUpdates = variants.map(async (variant) => {
+                totalQuantity += variant.quantity;
+                if (!variant.priceSale) {
+                    variant.priceSale = variant.price;
+                }
+                if (minPriceSale > variant.priceSale) {
+                    minPriceSale = variant.priceSale;
+                    minPrice = variant.price;
+                }
+                if (variant.status == 1) {
+                    const newVariant = new Variant({
+                        product: currentProduct._id,
+                        ...variant,
+                    });
+                    await newVariant.save({ session });
+                    updateVariantsId.push(newVariant._id);
+                } else {
+                    if (oldVariantsId.indexOf(variant._id) != -1) {
+                        const variantUpdate = await Variant.findById(variant._id);
+                        if (!variantUpdate) {
+                            await session.abortTransaction();
+                            res.status(400);
+                            throw new Error(`Mã biến thể"${variant._id}" cần cập nhật không tồn tại`);
+                        }
+                        if (variant.status == -1) {
+                            variantUpdate.remove({ session });
+                        } else {
+                            const result = Object.assign((variantUpdate, variant));
+                            if (result === variantUpdate) {
+                                await variantUpdate.save({ session });
+                                updateVariantsId.push(variantUpdate._id);
+                            } else {
+                                await session.abortTransaction();
+                                res.status(500);
+                                throw new Error('Xảy ra lỗi trong quá trình cập nhật sản phẩm');
+                            }
+                        }
+                    } else {
+                        await session.abortTransaction();
+                        res.status(400);
+                        throw new Error(
+                            `Mã biến thể "${variant._id}" không thuộc danh sách các biến thể của sản phẩm này`,
+                        );
+                    }
                 }
             });
-            return uploadImage.secure_url;
-        });
-        const imageList = await Promise.all(uploadListImage);
-        updateImages.push(...imageList);
-    }
-    if (updateImages.length === 0) {
-        res.status(400);
-        throw new Error('Thiếu hình ảnh. Vui lòng đăng tải ít nhất 1 hình ảnh');
-    }
-    currentProduct.images = updateImages;
-    //update variant
-    //update current variants
-    const oldVariants = currentProduct.variants;
-    const variantUpdates = variants.map(async (variant) => {
-        if (currentProduct.variants.indexOf(variant._id) != -1) {
-            const variantUpdate = await Variant.findByIdAndUpdate(variant._id, { ...variant }, { new: true });
-            if (!variantUpdate) {
-                res.status(400);
-                throw new Error(`"${variant._id}" ID biến thể cần cập nhật không tồn tại`);
-            }
-            return variantUpdate;
-        } else {
-            const newVariant = new Variant({
-                product: currentProduct._id,
-                ...variant,
-            });
-            return await newVariant.save();
-        }
-    });
-    const updateVariants = await Promise.all(variantUpdates);
-    if (!updateVariants || updateVariants.length == 0) {
-        res.status(400);
-        throw new Error('Cập nhật biến thể sản phẩm lỗi');
-    }
-    //recalculate product price and total quantity
-    let minPriceSale = updateVariants[0].priceSale;
-    let minPrice = updateVariants[0].price;
-    let totalQuantity = 0;
-    const variantIds = updateVariants.map((variant) => {
-        totalQuantity += variant.quantity;
-        if (minPriceSale > variant.priceSale) {
-            minPriceSale = variant.priceSale;
-            minPrice = variant.price;
-        }
-        return variant._id;
-    });
-    currentProduct.variants = variantIds;
-    currentProduct.price = minPrice;
-    currentProduct.priceSale = minPriceSale;
-    currentProduct.quantity = totalQuantity;
+            await Promise.all(variantUpdates);
 
-    const updatedProduct = await currentProduct.save();
-    const compareVariants = oldVariants.map((oldVariant) => {
-        if (updatedProduct.variants.indexOf(oldVariant._id) == -1) {
-            return oldVariant;
-        }
-        return null;
-    });
-    await Variant.deleteMany({ _id: { $in: compareVariants } });
-    res.status(200).json({ message: 'Cập nhật Sản phẩm thành công', data: { updatedProduct } });
+            currentProduct.variants = updateVariantsId;
+            currentProduct.price = minPrice;
+            currentProduct.priceSale = minPriceSale;
+            currentProduct.quantity = totalQuantity;
+            currentProduct.weight = weight;
+            currentProduct.length = length;
+            currentProduct.height = height;
+            currentProduct.width = width;
+
+            const updatedProduct = await currentProduct.save({ session });
+
+            res.status(200).json({ message: 'Cập nhật Sản phẩm thành công', data: { updatedProduct } });
+        }, transactionOptions);
+    } catch (error) {
+        next(error);
+    } finally {
+        session.endSession();
+    }
 };
 
 const reviewProduct = async (req, res) => {

@@ -419,12 +419,61 @@ const changePassword = async (req, res) => {
     }
 };
 
+const getUserAddress = async (req, res) => {
+    res.json({
+        message: 'Success',
+        data: {
+            addressList: req.user.address || [],
+        },
+    });
+};
+
+const createUserAddress = async (req, res) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ message: message });
+    }
+
+    const { name, phone, province, district, ward, specificAddress, isDefault } = req.body;
+    req.user.address.push({ name, phone, province, district, ward, specificAddress, isDefault });
+    req.user.save();
+};
+const updateUserAddress = async (req, res) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ message: message });
+    }
+    const addressId = req.params.id || null;
+    const { name, phone, province, district, ward, specificAddress, isDefault } = req.body;
+    const count = 0;
+    req.user.address.map((item) => {
+        if (isDefault) {
+            item.isDefault = false;
+        }
+        if (item._id == addressId) {
+            item = { _id: item._id, name, phone, province, district, ward, specificAddress, isDefault };
+            count++;
+        }
+    });
+    if (count <= 0) {
+        res.status(404);
+        throw new Error('Địa chỉ không tồn tại');
+    }
+    req.user.save();
+};
 const userController = {
     login,
     refreshToken,
     register,
     getProfile,
     updateProfile,
+    createUserAddress,
+    updateUserAddress,
+    getUserAddress,
     changePassword,
     getUsersByAdmin,
     verifyEmail,
