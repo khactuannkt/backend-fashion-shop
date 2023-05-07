@@ -440,7 +440,7 @@ const createUserAddress = async (req, res) => {
     const { name, phone, province, district, ward, specificAddress, isDefault } = req.body;
     req.user.address.push({ name, phone, province, district, ward, specificAddress, isDefault });
     await req.user.save();
-    res.status(200).json({ message: 'Thêm địa chỉ thành công', data: { addressList: req.user.address } });
+    res.status(201).json({ message: 'Thêm địa chỉ thành công', data: { addressList: req.user.address } });
 };
 const updateUserAddress = async (req, res) => {
     // Validate the request data using express-validator
@@ -528,7 +528,7 @@ const addUserDiscountCode = async (req, res) => {
         res.status(404);
         throw new Error('Mã giảm giá không tồn tại');
     }
-    if (existedDiscountCode.endDate < Date.Now()) {
+    if (existedDiscountCode.endDate < Date.now()) {
         res.status(404);
         throw new Error('Mã giảm giá Đã hết hạn');
     }
@@ -536,10 +536,17 @@ const addUserDiscountCode = async (req, res) => {
         res.status(400);
         throw new Error('Mã giảm giá đã được sử dụng hết');
     }
-    res.json({
+    if (req.user.discountCode.indexOf(existedDiscountCode._id) != -1) {
+        res.status(400);
+        throw new Error('Mã giảm giá đã tồn tại trong danh sách mã giảm giá của bạn');
+    }
+    req.user.discountCode.push(existedDiscountCode._id);
+    await req.user.save();
+    const user = await User.findById(req.user._id).populate('discountCode');
+    res.status(201).json({
         message: 'Success',
         data: {
-            discountCodeList: req.user.discountCode || [],
+            discountCodeList: user.discountCode || [],
         },
     });
 };
