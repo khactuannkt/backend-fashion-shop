@@ -3,6 +3,7 @@ import schedule, { scheduleJob } from 'node-schedule';
 import crypto from 'crypto';
 import User from '../models/user.model.js';
 import Cart from '../models/cart.model.js';
+import DiscountCode from '../models/discountCode.model.js';
 import Token from '../models/token.model.js';
 import { sendMail } from '../utils/nodemailler.js';
 import generateAuthToken from '../utils/generateToken.js';
@@ -456,6 +457,11 @@ const updateUserAddress = async (req, res) => {
             item.isDefault = false;
         }
         if (item._id == addressId) {
+            if (isDefault == false && item.isDefault == true) {
+                throw new Error(
+                    'Không thể bỏ xác nhận đặt làm địa chỉ mặc định khi địa chỉ đang được chọn làm mặc định',
+                );
+            }
             item.name = name;
             item.phone = phone;
             item.province = province;
@@ -473,6 +479,70 @@ const updateUserAddress = async (req, res) => {
     await req.user.save();
     res.status(200).json({ message: 'Cập nhật địa chỉ thành công', data: { addressList: req.user.address } });
 };
+const removeUserAddress = async (req, res) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ message: message });
+    }
+    const addressId = req.params.id || null;
+    const newAddressList = req.user.address.filter((item) => {
+        if (item._id == addressId) {
+            if (item.isDefault) {
+                res.status(400);
+                throw new Error('Không thể xóa địa chỉ đang được đặt làm địa chỉ mặc định');
+            } else {
+                return false;
+            }
+        } else {
+            return true;
+        }
+    });
+    if (newAddressList.length == req.user.address.length) {
+        res.status(404);
+        throw new Error('Địa chỉ không tồn tại');
+    }
+    req.user.address = newAddressList;
+    await req.user.save();
+    res.status(200).json({ message: 'Xóa địa chỉ thành công', data: { addressList: req.user.address } });
+};
+const getUserDiscountCode = async (req, res) => {
+    res.json({
+        message: 'Success',
+        data: {
+            discountCodeList: req.user.discountCode || [],
+        },
+    });
+};
+const addUserDiscountCode = async (req, res) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ message: message });
+    }
+    const code = req.body.discountCode;
+    const existedDiscountCode = await DiscountCode.findOne({ code: code, disabled: false });
+    if (!existedDiscountCode) {
+        res.status(404);
+        throw new Error('Mã giảm giá không tồn tại');
+    }
+    if (existedDiscountCode.endDate < Date.Now()) {
+        res.status(404);
+        throw new Error('Mã giảm giá Đã hết hạn');
+    }
+    if (existedDiscountCode.used >= existedDiscountCode.usageLimit) {
+        res.status(400);
+        throw new Error('Mã giảm giá đã được sử dụng hết');
+    }
+    res.json({
+        message: 'Success',
+        data: {
+            discountCodeList: req.user.discountCode || [],
+        },
+    });
+};
 const userController = {
     login,
     refreshToken,
@@ -482,6 +552,9 @@ const userController = {
     createUserAddress,
     updateUserAddress,
     getUserAddress,
+    removeUserAddress,
+    getUserDiscountCode,
+    addUserDiscountCode,
     changePassword,
     getUsersByAdmin,
     verifyEmail,

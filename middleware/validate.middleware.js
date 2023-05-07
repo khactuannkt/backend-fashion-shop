@@ -367,24 +367,60 @@ const validate = {
                 }
                 return true;
             }),
-        // check('address').custom((address) => {
-        //     if (!address) {
-        //         throw new Error('Địa chỉ không được để trống');
-        //     }
-        //     if (!address.province || address.province.trim() === '') {
-        //         throw new Error('Tỉnh/Thành phố không được để trống');
-        //     }
-        //     if (!address.district || address.district.trim() === '') {
-        //         throw new Error('Quận/Huyện không được để trống');
-        //     }
-        //     if (!address.ward || address.ward.trim() === '') {
-        //         throw new Error('Phường/Xã không được để trống');
-        //     }
-        //     if (!address.specificAddress || address.specificAddress.trim() === '') {
-        //         throw new Error('Địa chỉ chi tiết không được để trống');
-        //     }
-        //     return true;
-        // }),
+    ],
+    userAddress: [
+        check('name').notEmpty().withMessage('Tên người nhận không được để trống'),
+        check('phone').notEmpty().withMessage('Số điện thoại người nhận không được để trống'),
+        check('province').notEmpty().withMessage('Tỉnh/Thành phố không được để trống'),
+        check('province.id')
+            .notEmpty()
+            .withMessage('Mã Tỉnh/Thành phố không được để trống')
+            .isInt()
+            .withMessage('Mã Tỉnh/Thành phố phải là kiểu số nguyên'),
+        check('province.name')
+            .notEmpty()
+            .withMessage('Tên Tỉnh/Thành phố không được để trống')
+            .isString()
+            .withMessage('Tên Tỉnh/Thành phố phải là kiểu chuỗi'),
+        check('district').notEmpty().withMessage('Huyện/Quận không được để trống'),
+        check('district.id')
+            .notEmpty()
+            .withMessage('Mã Huyện/Quận không được để trống')
+            .isInt()
+            .withMessage('Mã Huyện/Quận phải là kiểu số nguyên'),
+        check('district.name')
+            .notEmpty()
+            .withMessage('Tên Huyện/Quận phố không được để trống')
+            .isString()
+            .withMessage('Tên Huyện/Quận phố phải là kiểu chuỗi'),
+        check('ward').notEmpty().withMessage('Xã/Phường không được để trống'),
+        check('ward.id')
+            .notEmpty()
+            .withMessage('Mã Xã/Phường không được để trống')
+            .isInt()
+            .withMessage('Mã Xã/Phường phải là kiểu số nguyên'),
+        check('ward.name')
+            .notEmpty()
+            .withMessage('Tên Xã/Phường không được để trống')
+            .isString()
+            .withMessage('Tên Xã/Phường phải là kiểu chuỗi'),
+        check('specificAddress')
+            .notEmpty()
+            .withMessage('Địa chỉ chi tiết không được để trống')
+            .isString()
+            .withMessage('Địa chỉ chi tiết phải là kiểu chuỗi'),
+        check('isDefault')
+            .notEmpty()
+            .withMessage('Xác nhận đặt làm địa chỉ mặc định không được để trống')
+            .isBoolean()
+            .withMessage('Xác nhận đặt làm địa chỉ mặc định phải là kiểu chỉ định đúng/sai'),
+    ],
+    addUserDiscountCode: [
+        check('discountCode')
+            .notEmpty()
+            .withMessage('Mã giảm giá không được để trống')
+            .isString()
+            .withMessage('Mã giảm giá phải là kiểu chuỗi'),
     ],
     forgotPassword: [
         check('email')

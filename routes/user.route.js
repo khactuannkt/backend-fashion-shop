@@ -12,9 +12,28 @@ userRouter.post('/login', validate.login, asyncHandler(userController.login));
 userRouter.post('/refresh-token', asyncHandler(userController.refreshToken));
 userRouter.post('/register', validate.register, asyncHandler(userController.register));
 userRouter.put('/profile', validate.updateProfile, protect, asyncHandler(userController.updateProfile));
-userRouter.post('/address/create_user_address', protect, asyncHandler(userController.createUserAddress));
-userRouter.put('/address/:id/update_user_address', protect, asyncHandler(userController.updateUserAddress));
-userRouter.get('/address/get_user_address_list', protect, asyncHandler(userController.getUserAddress));
+userRouter.post(
+    '/address/add-user-address',
+    validate.userAddress,
+    protect,
+    asyncHandler(userController.createUserAddress),
+);
+userRouter.put(
+    '/address/:id/update-user-address',
+    validate.userAddress,
+    protect,
+    asyncHandler(userController.updateUserAddress),
+);
+userRouter.delete('/address/:id/remove-user-address', protect, asyncHandler(userController.removeUserAddress));
+userRouter.get('/address/get-user-address-list', protect, asyncHandler(userController.getUserAddress));
+userRouter.get('/discount-code/get-user-discount-code-list', protect, asyncHandler(userController.getUserDiscountCode));
+userRouter.post(
+    '/discount-code/add-user-discount-code-list',
+    validate.addUserDiscountCode,
+    protect,
+    auth('user'),
+    asyncHandler(userController.addUserDiscountCode),
+);
 userRouter.patch('/auth/verify-email', asyncHandler(userController.verifyEmail));
 userRouter.patch('/auth/cancel-verify-email', asyncHandler(userController.cancelVerifyEmail));
 userRouter.patch(
