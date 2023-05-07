@@ -438,7 +438,8 @@ const createUserAddress = async (req, res) => {
 
     const { name, phone, province, district, ward, specificAddress, isDefault } = req.body;
     req.user.address.push({ name, phone, province, district, ward, specificAddress, isDefault });
-    req.user.save();
+    await req.user.save();
+    res.status(200).json({ message: 'Thêm địa chỉ thành công', data: { addressList: req.user.address } });
 };
 const updateUserAddress = async (req, res) => {
     // Validate the request data using express-validator
@@ -449,13 +450,19 @@ const updateUserAddress = async (req, res) => {
     }
     const addressId = req.params.id || null;
     const { name, phone, province, district, ward, specificAddress, isDefault } = req.body;
-    const count = 0;
+    let count = 0;
     req.user.address.map((item) => {
         if (isDefault) {
             item.isDefault = false;
         }
         if (item._id == addressId) {
-            item = { _id: item._id, name, phone, province, district, ward, specificAddress, isDefault };
+            item.name = name;
+            item.phone = phone;
+            item.province = province;
+            item.district = district;
+            item.ward = ward;
+            item.specificAddress = specificAddress;
+            item.isDefault = isDefault;
             count++;
         }
     });
@@ -463,7 +470,8 @@ const updateUserAddress = async (req, res) => {
         res.status(404);
         throw new Error('Địa chỉ không tồn tại');
     }
-    req.user.save();
+    await req.user.save();
+    res.status(200).json({ message: 'Cập nhật địa chỉ thành công', data: { addressList: req.user.address } });
 };
 const userController = {
     login,
