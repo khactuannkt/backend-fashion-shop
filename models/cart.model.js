@@ -37,6 +37,10 @@ const cartSchema = new mongoose.Schema(
             ref: 'User',
         },
         cartItems: [cartItem],
+        updatedVersion: {
+            type: Number,
+            default: 0,
+        },
         disabled: {
             type: Boolean,
             required: true,

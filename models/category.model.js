@@ -14,7 +14,6 @@ const categorySchema = new mongoose.Schema(
         },
         description: {
             type: String,
-            required: true,
         },
         image: {
             type: String,
@@ -35,6 +34,10 @@ const categorySchema = new mongoose.Schema(
                 ref: 'Category',
             },
         ],
+        updatedVersion: {
+            type: Number,
+            default: 0,
+        },
         disabled: {
             type: Boolean,
             required: true,

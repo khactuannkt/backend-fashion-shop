@@ -36,6 +36,10 @@ const variantSchema = mongoose.Schema(
             type: Number,
             required: true,
         },
+        updatedVersion: {
+            type: Number,
+            default: 0,
+        },
         deleted: {
             type: Date,
             default: null,

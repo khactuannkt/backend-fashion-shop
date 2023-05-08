@@ -3,6 +3,7 @@ import asyncHandler from 'express-async-handler';
 import { protect, auth } from '../middleware/auth.middleware.js';
 import categoryController from '../controllers/category.controller.js';
 import validate from '../middleware/validate.middleware.js';
+import { multerUpload } from '../utils/multer.js';
 
 const categoryRouter = express.Router();
 
@@ -17,6 +18,7 @@ categoryRouter.get(
 categoryRouter.get('/', asyncHandler(categoryController.getCategories));
 categoryRouter.post(
     '/',
+    multerUpload.single('imageFile'),
     validate.createCategory,
     protect,
     auth('staff', 'admin'),

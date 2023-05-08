@@ -24,6 +24,10 @@ const bannerSchema = new mongoose.Schema(
             enum: ['slider', 'banner'],
             default: 'slider',
         },
+        updatedVersion: {
+            type: Number,
+            default: 0,
+        },
         disabled: {
             type: Boolean,
             required: true,

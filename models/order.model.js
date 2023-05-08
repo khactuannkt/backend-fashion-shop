@@ -104,6 +104,10 @@ const orderSchema = mongoose.Schema(
             required: true,
             default: false,
         },
+        updatedVersion: {
+            type: Number,
+            default: 0,
+        },
     },
     {
         timestamps: true,

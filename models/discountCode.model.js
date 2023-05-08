@@ -66,6 +66,10 @@ const discountCodeSchema = new mongoose.Schema(
                 ref: 'Product',
             },
         ],
+        updatedVersion: {
+            type: Number,
+            default: 0,
+        },
         disabled: {
             type: Boolean,
             required: true,

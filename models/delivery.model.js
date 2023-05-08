@@ -87,6 +87,10 @@ const deliverySchema = mongoose.Schema(
         status: {
             type: String,
         },
+        updatedVersion: {
+            type: Number,
+            default: 0,
+        },
     },
     {
         timestamps: true,

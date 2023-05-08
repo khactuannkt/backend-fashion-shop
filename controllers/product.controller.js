@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import mongoose from 'mongoose';
 import Product from '../models/product.model.js';
 import Category from '../models/category.model.js';
 import Order from '../models/order.model.js';
@@ -144,7 +145,7 @@ const getProductById = async (req, res) => {
     res.status(200).json({ data: { product } });
 };
 
-const createProduct = async (req, res) => {
+const createProduct = async (req, res, next) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -276,7 +277,7 @@ const createProduct = async (req, res) => {
     }
 };
 
-const updateProduct = async (req, res) => {
+const updateProduct = async (req, res, next) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {

@@ -94,7 +94,10 @@ const productSchema = mongoose.Schema(
             type: Number,
             default: 0,
         },
-
+        updatedVersion: {
+            type: Number,
+            default: 0,
+        },
         deleted: {
             type: Date,
             default: null,

@@ -438,6 +438,11 @@ const createUserAddress = async (req, res) => {
     }
 
     const { name, phone, province, district, ward, specificAddress, isDefault } = req.body;
+    if (isDefault) {
+        req.user.address.map((item) => {
+            item.isDefault = false;
+        });
+    }
     req.user.address.push({ name, phone, province, district, ward, specificAddress, isDefault });
     await req.user.save();
     res.status(201).json({ message: 'Thêm địa chỉ thành công', data: { addressList: req.user.address } });
@@ -508,10 +513,11 @@ const removeUserAddress = async (req, res) => {
     res.status(200).json({ message: 'Xóa địa chỉ thành công', data: { addressList: req.user.address } });
 };
 const getUserDiscountCode = async (req, res) => {
+    const discountCodeList = await DiscountCode.find({ _id: { $in: [...req.user.discountCode] } });
     res.json({
         message: 'Success',
         data: {
-            discountCodeList: req.user.discountCode || [],
+            discountCodeList,
         },
     });
 };

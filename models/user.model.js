@@ -89,6 +89,10 @@ const userSchema = mongoose.Schema(
             type: Number,
             required: false,
         },
+        updatedVersion: {
+            type: Number,
+            default: 0,
+        },
         disabled: {
             type: Boolean,
             required: true,

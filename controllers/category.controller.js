@@ -1,8 +1,11 @@
+import mongoose from 'mongoose';
 import Category from '../models/category.model.js';
 import Product from '../models/product.model.js';
 import { check, validationResult } from 'express-validator';
 import { cloudinaryUpload, cloudinaryRemove } from '../utils/cloudinary.js';
 import { ObjectId } from 'mongodb';
+import slug from 'slug';
+
 const getCategories = async (req, res) => {
     const level = req.query.level;
     const filter = {};
@@ -16,7 +19,7 @@ const getCategoryTree = async (req, res) => {
     const categories = await Category.find({ level: 1 }).populate('children').sort({ _id: -1 });
     return res.json({ message: 'Success', data: { categories } });
 };
-const getCategoryById = async (req, res, next) => {
+const getCategoryById = async (req, res) => {
     const categoryId = req.params.id || null;
     if (!ObjectId.isValid(categoryId)) {
         res.status(400);
@@ -34,10 +37,17 @@ const createCategory = async (req, res, next) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+        if (req.file) {
+            fs.unlink(req.file.path, (error) => {
+                if (error) {
+                    throw new Error(error);
+                }
+            });
+        }
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-    const { name, image, level, parent } = req.body;
+    const { name, level, parent, description, children } = req.body;
 
     const categoryExists = await Category.findOne({ name: name.trim() });
     if (categoryExists) {
@@ -45,62 +55,122 @@ const createCategory = async (req, res, next) => {
         throw new Error('Danh mục đã tồn tại');
     }
 
-    const category = new Category({
-        name: name.trim(),
-        level: level,
-    });
-    let parentCat;
-    if (category.level > 1) {
-        if (!parent || parent.trim() === '') {
-            res.status(400);
-            throw new Error('Nếu danh mục có cấp độ lớn hơn 1 thì phải chọn danh mục mẹ');
-        }
-        if (!ObjectId.isValid(parent)) {
-            res.status(400);
-            throw new Error('ID danh mục mẹ không hợp lệ');
-        }
-        parentCat = await Category.findById(parent);
-        if (!parentCat) {
-            res.status(404);
-            throw new Error('Danh mục mẹ không tồn tại');
-        }
-        if (parentCat.level >= category.level) {
-            res.status(400);
-            throw new Error('Danh mục mẹ phải có cấp độ nhỏ hơn cấp độ danh mục muốn tạo');
-        }
-        category.parent = parentCat._id;
-        parentCat.children.push(category._id);
-    } else {
-        category.parent = category._id;
+    //generate slug
+    let generatedSlug = slug(name);
+    const existSlug = await Category.findOne({ slug: generatedSlug });
+    if (existSlug) {
+        generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
     }
-    let imageUrl = '';
-    if (req.file) {
-        const uploadImage = await cloudinaryUpload(req.file.path, 'FashionShop/categories');
-        if (!uploadImage) {
-            throw new Error('Some category image were not uploaded due to an unknown error');
-        }
-        imageUrl = uploadImage.secure_url;
-        fs.unlink(req.file.path, (error) => {
-            if (error) {
-                res.status(500);
-                throw new Error(error);
+
+    const session = await mongoose.startSession();
+    const transactionOptions = {
+        readPreference: 'primary',
+        readConcern: { level: 'local' },
+        writeConcern: { w: 'majority' },
+    };
+    try {
+        await session.withTransaction(async () => {
+            const category = new Category({
+                name: name.trim(),
+                slug: generatedSlug,
+                level,
+                description: description || '',
+            });
+
+            let parentCategory;
+            if (category.level > 1) {
+                if (!parent || parent.trim() === '') {
+                    await session.abortTransaction();
+                    res.status(400);
+                    throw new Error('Nếu danh mục có cấp độ lớn hơn 1 thì phải chọn danh mục mẹ');
+                }
+                if (!ObjectId.isValid(parent)) {
+                    await session.abortTransaction();
+                    res.status(400);
+                    throw new Error('ID danh mục mẹ không hợp lệ');
+                }
+                parentCategory = await Category.findById(parent);
+                if (!parentCategory) {
+                    await session.abortTransaction();
+                    res.status(404);
+                    throw new Error('Danh mục mẹ không tồn tại');
+                }
+                if (parentCategory.level >= category.level) {
+                    await session.abortTransaction();
+                    res.status(400);
+                    throw new Error('Danh mục mẹ phải có cấp độ nhỏ hơn cấp độ danh mục muốn tạo');
+                }
+                category.parent = parentCategory._id;
+                parentCategory.children.push(category._id);
+            } else {
+                category.parent = category._id;
             }
-        });
-    } else if (image && image.trim() !== '') {
-        const uploadImage = await cloudinaryUpload(image, 'FashionShop/categories');
-        if (!uploadImage) {
-            throw new Error('Some category image were not uploaded due to an unknown error');
-        }
-        imageUrl = uploadImage.secure_url;
+
+            let childrenCategory = [];
+            if (children && typeof children == 'array' && children.length > 0) {
+                childrenCategory = await children.map(async (item) => {
+                    const childrenCategoryExists = await Category.findOne({ name: item.name.trim() });
+                    if (childrenCategoryExists) {
+                        await session.abortTransaction();
+                        res.status(409);
+                        throw new Error('Danh mục đã tồn tại');
+                    }
+                    //generate slug
+                    let generatedSlug = slug(item.name);
+                    const existSlug = await Category.findOne({ slug: generatedSlug });
+                    if (existSlug) {
+                        generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
+                    }
+                    const newChildrenCategory = await new Category({
+                        name: item.name.trim(),
+                        slug: generatedSlug,
+                        level: level + 1,
+                        description: item.description || '',
+                    }).save({ session });
+                    return newChildrenCategory._id;
+                });
+                category.children = childrenCategory;
+            }
+            let imageUrl = '';
+            if (req.file) {
+                const uploadImage = await cloudinaryUpload(req.file.path, 'FashionShop/categories');
+                if (!uploadImage) {
+                    await session.abortTransaction();
+                    res.status(500);
+                    throw new Error('Some category image were not uploaded due to an unknown error');
+                }
+                imageUrl = uploadImage.secure_url;
+                category.image = imageUrl;
+                fs.unlink(req.file.path, async (error) => {
+                    if (error) {
+                        await session.abortTransaction();
+                        res.status(500);
+                        throw new Error(error);
+                    }
+                });
+            }
+            //  else if (image && image.trim() !== '') {
+            //     const uploadImage = await cloudinaryUpload(image, 'FashionShop/categories');
+            //     if (!uploadImage) {
+            //         throw new Error('Some category image were not uploaded due to an unknown error');
+            //     }
+            //     imageUrl = uploadImage.secure_url;
+            // }
+            // if (imageUrl.length > 0) {
+            //     category.image = imageUrl;
+            // }
+
+            const newCategory = await (await category.save({ session })).populate('children');
+            if (parentCategory) {
+                await parentCategory.save({ session });
+            }
+            res.status(201).json({ message: 'Thêm danh mục thành công', data: { newCategory } });
+        }, transactionOptions);
+    } catch (error) {
+        next(error);
+    } finally {
+        session.endSession();
     }
-    if (imageUrl.length > 0) {
-        category.image = imageUrl;
-    }
-    const newCategory = await category.save();
-    if (parentCat) {
-        await parentCat.save();
-    }
-    res.status(201).json({ message: 'Thêm danh mục thành công', data: { newCategory } });
 };
 
 const updateCategory = async (req, res, next) => {
