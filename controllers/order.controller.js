@@ -42,6 +42,7 @@ const getOrdersByUserId = async (req, res) => {
     }
     const count = await Order.countDocuments({ ...orderFilter });
     const orders = await Order.find({ ...orderFilter })
+        .populate(['delivery', 'paymentInformation'])
         .limit(limit)
         .skip(limit * page)
         .sort({ createdAt: 'desc' });
@@ -55,7 +56,7 @@ const getOrderById = async (req, res) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-    const order = await Order.findById(req.params.id);
+    const order = await Order.findById(req.params.id).populate(['delivery', 'paymentInformation']);
     if (!order) {
         res.status(404);
         throw new Error('Đơn hàng không tồn tại');
@@ -79,6 +80,7 @@ const getOrders = async (req, res) => {
     };
     const count = await Order.countDocuments(orderFilter);
     const orders = await Order.find({ ...orderFilter })
+        .populate(['delivery', 'paymentInformation'])
         .limit(pageSize)
         .skip(pageSize * (page - 1))
         .sort({ ...dateOrderSortBy });
@@ -559,16 +561,13 @@ const createOrder = async (req, res, next) => {
                 { user: req.user._id },
                 { $pull: { cartItems: { variant: { $in: productCheckResult.orderItemIds } } } },
             ).session(session);
-            const newOrder = await orderInfor.save({ session });
+            const newOrder = await (await orderInfor.save({ session })).populate(['delivery', 'paymentInformation']);
+
             if (!newOrder) {
                 await session.abortTransaction();
                 res.status(500);
                 throw new Error('Xảy ra lỗi trong quá trình tạo đơn hàng');
             }
-            orderInfor.delivery = newShipping;
-            orderInfor.paymentInformation = createOrderPaymentInformation;
-
-            // const newOrder = await Order.findById(createOrder._id).populate('delivery', 'paymentInformation');
             res.status(201).json({ message: 'Đặt hàng thành công', data: { newOrder } });
             await session.commitTransaction();
         }, transactionOptions);

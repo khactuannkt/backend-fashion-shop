@@ -131,27 +131,25 @@ const validate = {
             }
             return true;
         }),
-        // check('children').custom((children) => {
-        //     if (children) {
-        //         // if (typeof children != 'array') {
-        //         //     throw new Error('Danh sách danh mục con phải là kiểu mảng');
-        //         // } else
-        //         if (Array(children).length > 0) {
-        //             Array(children).map((item) => {
-        //                 if (!item.name) {
-        //                     throw new Error('Tên của các danh mục con không được để trống');
-        //                 }
-        //                 if (typeof item.name != 'string') {
-        //                     throw new Error('Tên của các danh mục con phải là kiểu chuỗi');
-        //                 }
-        //                 if (typeof item.description != 'string') {
-        //                     throw new Error('Mô tả của các danh mục con phải là kiểu chuỗi');
-        //                 }
-        //             });
-        //         }
-        //     }
-        //     return true;
-        // }),
+        check('children').custom((children) => {
+            if (children) {
+                children = JSON.parse(children);
+                if (children.length > 0) {
+                    children.map((item) => {
+                        if (!item.name) {
+                            throw new Error('Tên của các danh mục con không được để trống');
+                        }
+                        if (typeof item.name != 'string') {
+                            throw new Error('Tên của các danh mục con phải là kiểu chuỗi');
+                        }
+                        if (typeof item.description != 'string') {
+                            throw new Error('Mô tả của các danh mục con phải là kiểu chuỗi');
+                        }
+                    });
+                }
+            }
+            return true;
+        }),
     ],
     updateCategory: [
         check('id').custom((id) => {

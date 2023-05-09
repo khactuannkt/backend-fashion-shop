@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import * as fs from 'fs';
 import Category from '../models/category.model.js';
 import Product from '../models/product.model.js';
 import { check, validationResult } from 'express-validator';
@@ -47,8 +48,8 @@ const createCategory = async (req, res, next) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-    const { name, level, parent, description, children } = req.body;
-
+    const { name, level, parent, description } = req.body;
+    const children = req.body.children ? JSON.parse(req.body.children) : [];
     const categoryExists = await Category.findOne({ name: name.trim() });
     if (categoryExists) {
         res.status(409);
@@ -107,34 +108,38 @@ const createCategory = async (req, res, next) => {
             }
 
             let childrenCategory = [];
-            console.log(typeof children);
-            if (children && typeof children == 'array' && children.length > 0) {
-                childrenCategory = await children.map(async (item) => {
-                    const childrenCategoryExists = await Category.findOne({ name: item.name.trim() });
-                    if (childrenCategoryExists) {
-                        await session.abortTransaction();
-                        res.status(409);
-                        throw new Error('Danh mục đã tồn tại');
-                    }
-                    //generate slug
-                    let generatedSlug = slug(item.name);
-                    const existSlug = await Category.findOne({ slug: generatedSlug });
-                    if (existSlug) {
-                        generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
-                    }
-                    const newChildrenCategory = await new Category({
-                        name: item.name.trim(),
-                        slug: generatedSlug,
-                        level: level + 1,
-                        description: item.description || '',
-                    }).save({ session });
-                    return newChildrenCategory._id;
-                });
+
+            if (children && children.length > 0) {
+                let childrenCategory = [];
+                await Promise.all(
+                    children.map(async (item) => {
+                        const childrenCategoryExists = await Category.findOne({ name: item.name.trim() });
+                        if (childrenCategoryExists) {
+                            await session.abortTransaction();
+                            res.status(409);
+                            throw new Error('Danh mục đã tồn tại');
+                        }
+                        //generate slug
+                        let generatedSlug = slug(item.name);
+                        const existSlug = await Category.findOne({ slug: generatedSlug });
+                        if (existSlug) {
+                            generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
+                        }
+                        const newChildrenCategory = new Category({
+                            name: item.name.trim(),
+                            slug: generatedSlug,
+                            parent: category._id,
+                            level: level + 1,
+                            description: item.description || '',
+                        });
+                        await newChildrenCategory.save({ session });
+                        childrenCategory.push(newChildrenCategory._id);
+                    }),
+                );
                 category.children = childrenCategory;
             }
             let imageUrl = '';
             if (req.file) {
-                console.log('có file');
                 const uploadImage = await cloudinaryUpload(req.file.path, 'FashionShop/categories');
                 if (!uploadImage) {
                     await session.abortTransaction();
@@ -161,11 +166,10 @@ const createCategory = async (req, res, next) => {
             // if (imageUrl.length > 0) {
             //     category.image = imageUrl;
             // }
-            const newCategory = [];
-            // const newCategory = await (await category.save({ session })).populate('children');
-            // if (parentCategory) {
-            //     await parentCategory.save({ session });
-            // }
+            const newCategory = await (await category.save({ session })).populate('children');
+            if (parentCategory) {
+                await parentCategory.save({ session });
+            }
             res.status(201).json({ message: 'Thêm danh mục thành công', data: { newCategory } });
         }, transactionOptions);
     } catch (error) {
@@ -190,7 +194,7 @@ const updateCategory = async (req, res, next) => {
         res.status(404);
         throw new Error('Danh mục không tồn tại');
     }
-    const { name, level, image, parent } = req.body;
+    const { name, description, level, image, parent } = req.body;
     let newParentCat, currentParentCat;
 
     if (currentCategory.name !== name) {
@@ -202,14 +206,14 @@ const updateCategory = async (req, res, next) => {
         }
         currentCategory.name = name.trim();
         //generate slug
-        let generatedSlug = slug(item.name);
+        let generatedSlug = slug(name);
         const existSlug = await Category.findOne({ slug: generatedSlug });
         if (existSlug) {
             generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
         }
         currentCategory.slug = generatedSlug;
     }
-
+    currentCategory.description = description;
     if (currentCategory.parent != parent || currentCategory.level != level) {
         currentCategory.level = level || currentCategory.level;
 
