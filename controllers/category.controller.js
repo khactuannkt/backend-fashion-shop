@@ -199,6 +199,13 @@ const updateCategory = async (req, res, next) => {
             throw new Error('Danh mục đã tồn tại');
         }
         currentCategory.name = name.trim();
+        //generate slug
+        let generatedSlug = slug(item.name);
+        const existSlug = await Category.findOne({ slug: generatedSlug });
+        if (existSlug) {
+            generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
+        }
+        currentCategory.slug = generatedSlug;
     }
 
     if (currentCategory.parent != parent || currentCategory.level != level) {

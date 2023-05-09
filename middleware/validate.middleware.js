@@ -843,11 +843,11 @@ const validate = {
         //     }
         //     return true;
         // }),
-        check('service_id')
-            .notEmpty()
-            .withMessage('Mã dịch vụ không được để trống')
-            .isInt()
-            .withMessage('Mã dịch vụ phải là số nguyên'),
+        // check('service_id')
+        //     .notEmpty()
+        //     .withMessage('Mã dịch vụ không được để trống')
+        //     .isInt()
+        //     .withMessage('Mã dịch vụ phải là số nguyên'),
         check('to_district_id')
             .notEmpty()
             .withMessage('Mã quận/huyện của người nhận hàng không được để trống')

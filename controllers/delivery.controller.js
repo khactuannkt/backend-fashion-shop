@@ -81,8 +81,7 @@ const calculateFee = async (req, res) => {
         return res.status(400).json({ message: message });
     }
     const {
-        from_district_id = null,
-        service_id,
+        service_id = 53350,
         to_district_id,
         to_ward_code,
         height = null,
@@ -93,9 +92,8 @@ const calculateFee = async (req, res) => {
         coupon = null,
     } = req.body;
 
-    const config = {
+    const configFee = {
         data: JSON.stringify({
-            from_district_id,
             service_id,
             to_district_id,
             to_ward_code,
@@ -107,9 +105,18 @@ const calculateFee = async (req, res) => {
             coupon,
         }),
     };
-    await GHN_Request.get('v2/shipping-order/fee', config)
+
+    const configLeadTime = {
+        data: JSON.stringify({
+            service_id,
+            to_district_id,
+            to_ward_code,
+        }),
+    };
+    const calculateFeeRequest = GHN_Request.get('v2/shipping-order/fee', configFee)
         .then((response) => {
-            res.status(200).json({ message: 'Success', data: { districts: response.data.data } });
+            // res.status(200).json({ message: 'Success', data: { fee: response.data.data } });
+            return response.data.data;
         })
         .catch((error) => {
             if (error?.response?.status && error.response.status == '400') {
@@ -120,6 +127,23 @@ const calculateFee = async (req, res) => {
                 throw new Error(error.response.message || error.message);
             }
         });
+
+    const leadTimeRequest = GHN_Request.get('v2/shipping-order/leadtime', configLeadTime)
+        .then((response) => {
+            // res.status(200).json({ message: 'Success', data: { leadTime: response.data.data } });
+            return response.data.data;
+        })
+        .catch((error) => {
+            if (error?.response?.status && error.response.status == '400') {
+                res.status(error.response.status);
+                throw new Error('Sai thông tin đầu vào. Vui lòng thử lại.');
+            } else {
+                res.status(500);
+                throw new Error(error.response.message || error.message);
+            }
+        });
+    const [fee, leadTime] = await Promise.all([calculateFeeRequest, leadTimeRequest]);
+    res.status(200).json({ message: 'Success', data: { fee, leadTime } });
 };
 
 const estimatedDeliveryTime = async (req, res) => {

@@ -19,18 +19,18 @@ bannerRouter.get(
 
 bannerRouter.post(
     '/',
+    multerUpload.single('bannerImage'),
     validate.createBanner,
     protect,
     auth('staff', 'admin'),
-    multerUpload.single('bannerImage'),
     asyncHandler(bannerController.createBanner),
 );
 bannerRouter.put(
     '/:id',
+    multerUpload.single('bannerImage'),
     validate.updateBanner,
     protect,
     auth('staff', 'admin'),
-    multerUpload.single('bannerImage'),
     asyncHandler(bannerController.updateBanner),
 );
 bannerRouter.delete('/:id', protect, auth('staff', 'admin'), asyncHandler(bannerController.deleteBanner));
