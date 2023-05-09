@@ -324,6 +324,29 @@ const validate = {
         }),
     ],
 
+    discountCalculation: [
+        check('orderItems')
+            .isArray()
+            .withMessage('Danh sách các sản phẩm đặt hàng phải là mảng')
+            .notEmpty()
+            .withMessage('Danh sách các sản phẩm đặt hàng không được để trống'),
+        check('orderItems.*.variant').custom((variant) => {
+            if (!ObjectId.isValid(variant)) {
+                throw new Error(`ID biến thể sản phẩm "${variant}" không hợp lệ`);
+            }
+            return true;
+        }),
+        check('orderItems.*.quantity')
+            .notEmpty()
+            .withMessage('Số lượng sản phẩm đặt hàng không được để trống')
+            .isInt({ min: 1 })
+            .withMessage('Số lượng sản phẩm đặt hàng phải là số nguyên và phải lớn hơn 0'),
+        check('discountCode')
+            .notEmpty()
+            .withMessage('Mã giảm giá không được để trống')
+            .isString()
+            .withMessage('Mã giảm giá phải là chuỗi kí tự'),
+    ],
     //====================Validate User==================
     register: [
         check('name').trim().not().isEmpty().withMessage('Tên không được để trống'),

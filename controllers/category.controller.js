@@ -107,6 +107,7 @@ const createCategory = async (req, res, next) => {
             }
 
             let childrenCategory = [];
+            console.log(typeof children);
             if (children && typeof children == 'array' && children.length > 0) {
                 childrenCategory = await children.map(async (item) => {
                     const childrenCategoryExists = await Category.findOne({ name: item.name.trim() });
@@ -133,6 +134,7 @@ const createCategory = async (req, res, next) => {
             }
             let imageUrl = '';
             if (req.file) {
+                console.log('có file');
                 const uploadImage = await cloudinaryUpload(req.file.path, 'FashionShop/categories');
                 if (!uploadImage) {
                     await session.abortTransaction();
@@ -149,7 +151,7 @@ const createCategory = async (req, res, next) => {
                     }
                 });
             }
-            //  else if (image && image.trim() !== '') {
+            // else if (image && image.trim() !== '') {
             //     const uploadImage = await cloudinaryUpload(image, 'FashionShop/categories');
             //     if (!uploadImage) {
             //         throw new Error('Some category image were not uploaded due to an unknown error');
@@ -159,11 +161,11 @@ const createCategory = async (req, res, next) => {
             // if (imageUrl.length > 0) {
             //     category.image = imageUrl;
             // }
-
-            const newCategory = await (await category.save({ session })).populate('children');
-            if (parentCategory) {
-                await parentCategory.save({ session });
-            }
+            const newCategory = [];
+            // const newCategory = await (await category.save({ session })).populate('children');
+            // if (parentCategory) {
+            //     await parentCategory.save({ session });
+            // }
             res.status(201).json({ message: 'Thêm danh mục thành công', data: { newCategory } });
         }, transactionOptions);
     } catch (error) {

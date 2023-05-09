@@ -559,12 +559,16 @@ const createOrder = async (req, res, next) => {
                 { user: req.user._id },
                 { $pull: { cartItems: { variant: { $in: productCheckResult.orderItemIds } } } },
             ).session(session);
-            const newOrder = (await orderInfor.save({ session })).populate('delivery', 'paymentInformation');
+            const newOrder = await orderInfor.save({ session });
             if (!newOrder) {
                 await session.abortTransaction();
                 res.status(500);
                 throw new Error('Xảy ra lỗi trong quá trình tạo đơn hàng');
             }
+            orderInfor.delivery = newShipping;
+            orderInfor.paymentInformation = createOrderPaymentInformation;
+
+            // const newOrder = await Order.findById(createOrder._id).populate('delivery', 'paymentInformation');
             res.status(201).json({ message: 'Đặt hàng thành công', data: { newOrder } });
             await session.commitTransaction();
         }, transactionOptions);

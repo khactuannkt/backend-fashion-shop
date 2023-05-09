@@ -16,6 +16,13 @@ discountCodeRouter.get(
 );
 discountCodeRouter.get('/code/:code', asyncHandler(discountCodeController.getDiscountCodeByCode));
 discountCodeRouter.post(
+    '/discount-calculation',
+    validate.discountCalculation,
+    protect,
+    auth('user'),
+    asyncHandler(discountCodeController.discountCalculation),
+);
+discountCodeRouter.post(
     '/',
     validate.createDiscountCode,
     protect,

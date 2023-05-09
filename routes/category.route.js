@@ -26,6 +26,7 @@ categoryRouter.post(
 );
 categoryRouter.put(
     '/:id',
+    multerUpload.single('imageFile'),
     validate.updateCategory,
     protect,
     auth('staff', 'admin'),
