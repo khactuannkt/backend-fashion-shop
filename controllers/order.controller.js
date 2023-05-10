@@ -128,6 +128,10 @@ const checkOrderProductList = async (size, orderItems) => {
         result.message = error.message;
         result.orderItemIds = [];
     });
+    //temp
+    size.height = 5;
+    size.length = 5;
+    size.width = 5;
     return result;
 };
 
@@ -143,7 +147,7 @@ const calculateFee = async (shippingAddress, size, price) => {
     }
     const config = {
         data: JSON.stringify({
-            service_id: 53350,
+            service_id: 53320,
             to_district_id: Number(shippingAddress.to_district_id),
             to_ward_code: shippingAddress.to_ward_code,
             height: size.height,
@@ -155,17 +159,17 @@ const calculateFee = async (shippingAddress, size, price) => {
     };
     await GHN_Request.get('v2/shipping-order/fee', config)
         .then((response) => {
-            deliveryFee.fee = response.data.data.total || 0;
+            deliveryFee.fee = response.data.data.total;
         })
         .catch((error) => {
-            console.log(error.response);
             deliveryFee.error = 1;
             if (error?.response?.status && error.response.status == '400') {
                 deliveryFee.status = 400;
                 deliveryFee.message = 'Sai thông tin giao hàng. Vui lòng thử lại.';
             } else {
                 deliveryFee.status = 500;
-                deliveryFee.message = error.response.message || error.message;
+                deliveryFee.message =
+                    error.response?.message || error.message || 'Xảy ra lỗi trong quá trình tính phí vận chuyển';
             }
         });
     return deliveryFee;
@@ -180,8 +184,6 @@ const estimatedDeliveryTime = async (shippingAddress) => {
     };
     const config = {
         data: JSON.stringify({
-            // from_district_id,
-            // from_ward_code,
             service_id: 53350,
             to_district_id: shippingAddress.to_district_id,
             to_ward_code: String(shippingAddress.to_ward_code),
@@ -189,7 +191,7 @@ const estimatedDeliveryTime = async (shippingAddress) => {
     };
     await GHN_Request.get('v2/shipping-order/leadtime', config)
         .then((response) => {
-            result.leadTime = response.data.data.leadTime || null;
+            result.leadTime = response.data.data.leadtime;
         })
         .catch((error) => {
             result.error = 1;
@@ -198,7 +200,10 @@ const estimatedDeliveryTime = async (shippingAddress) => {
                 result.message = 'Sai thông tin giao hàng. Vui lòng thử lại.';
             } else {
                 result.status = 500;
-                result.message = error.response.message || error.message;
+                result.message =
+                    error.response?.message ||
+                    error.message ||
+                    'Xảy ra lỗi trong quá trình tính thời gian giao hàng dự kiến';
             }
         });
     return result;
@@ -322,6 +327,7 @@ const createOrder = async (req, res, next) => {
         res.status(400);
         throw new Error(addressResult.message);
     }
+
     const address = addressResult.address;
 
     const session = await mongoose.startSession();
@@ -488,8 +494,9 @@ const createOrder = async (req, res, next) => {
                 to_ward_code: address.to_ward_code,
                 to_address: address.to_address,
                 note: address.note,
-                service_id: 53350,
+                service_id: 53320,
                 items: orderInfor.orderItems,
+                deliveryFee: deliveryFee.fee,
                 leadTime: leadTimeResult.leadTime,
                 height: size.height,
                 length: size.length,
@@ -958,10 +965,11 @@ const orderPaymentNotification = async (req, res) => {
         res.status(400);
         throw new Error('Thông tin xác nhận thanh toán không hợp lệ');
     }
-    order.paymentInformation.paid = true;
+    order.statusHistory.push({ status: 'paid' });
+    order.order.paymentInformation.paid = true;
     order.paymentInformation.paidAt = new Date();
-    order.paymentInformation.save();
-    res.status(200);
+    await order.paymentInformation.save();
+    res.status(204);
 };
 
 const userPaymentOrder = async (req, res) => {
@@ -1042,7 +1050,7 @@ const cancelOrder = async (req, res, next) => {
             default:
                 break;
         }
-    } else {
+    } else if (req.user._id == order.user) {
         switch (order.status) {
             case 'confirm':
                 res.status(400);
@@ -1062,6 +1070,9 @@ const cancelOrder = async (req, res, next) => {
             default:
                 break;
         }
+    } else {
+        res.status(404);
+        throw new Error('Đơn hàng không tồn tại');
     }
     const session = await mongoose.startSession();
     const transactionOptions = {

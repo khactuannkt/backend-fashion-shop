@@ -115,7 +115,6 @@ const calculateFee = async (req, res) => {
     };
     const calculateFeeRequest = GHN_Request.get('v2/shipping-order/fee', configFee)
         .then((response) => {
-            // res.status(200).json({ message: 'Success', data: { fee: response.data.data } });
             return response.data.data;
         })
         .catch((error) => {
@@ -130,7 +129,6 @@ const calculateFee = async (req, res) => {
 
     const leadTimeRequest = GHN_Request.get('v2/shipping-order/leadtime', configLeadTime)
         .then((response) => {
-            // res.status(200).json({ message: 'Success', data: { leadTime: response.data.data } });
             return response.data.data;
         })
         .catch((error) => {

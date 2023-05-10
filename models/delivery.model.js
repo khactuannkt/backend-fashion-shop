@@ -72,6 +72,11 @@ const deliverySchema = mongoose.Schema(
                 category: { type: String },
             },
         ],
+        deliveryFee: {
+            type: Number,
+            default: 0,
+        },
+
         insurance_value: {
             type: Number,
         },

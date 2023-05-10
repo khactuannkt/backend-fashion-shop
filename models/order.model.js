@@ -5,8 +5,12 @@ const orderStatus = mongoose.Schema(
         status: {
             type: String,
             required: true,
-            enum: ['placed', 'confirm', 'delivering', 'delivered', 'cancelled', 'completed'],
+            enum: ['placed', 'confirm', 'delivering', 'delivered', 'cancelled', 'completed', 'paid'],
             default: 'placed',
+        },
+        description: {
+            type: String,
+            default: '',
         },
         updateBy: {
             type: mongoose.Schema.Types.ObjectId,

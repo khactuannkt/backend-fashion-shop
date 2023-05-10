@@ -181,6 +181,7 @@ const validate = {
     //====================Validate Discount Code==================
     createDiscountCode: [
         check('code').trim().not().isEmpty().withMessage('Code is required'),
+        check('name').trim().not().isEmpty().withMessage('name is required'),
         check('discountType').custom((discountType) => {
             if (!discountType || discountType.trim() == '') {
                 throw new Error('Discount type is required');
