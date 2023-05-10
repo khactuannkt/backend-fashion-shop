@@ -3,6 +3,7 @@ import Banner from '../models/banner.model.js';
 import { cloudinaryUpload, cloudinaryRemove } from '../utils/cloudinary.js';
 import { validationResult } from 'express-validator';
 import { ObjectId } from 'mongodb';
+import { url } from 'inspector';
 
 const getBanners = async (req, res) => {
     const banners = await Banner.find({ role: 'banner' }).sort({ index: 1 });
@@ -32,7 +33,7 @@ const createBanner = async (req, res) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-    const { title, index, imageUrl, linkTo, role } = req.body;
+    const { title, index, imageUrl, linkTo, type } = req.body;
 
     let image = '';
     if (req.file) {
@@ -59,11 +60,11 @@ const createBanner = async (req, res) => {
     }
 
     const banner = new Banner({
-        title,
-        index: Number(index),
+        // title,
+        // index: Number(index),
         imageUrl: image,
-        linkTo,
-        role,
+        // linkTo,
+        type: 'slider',
     });
     const newBanner = await banner.save();
     return res.status(201).json({ message: 'Thêm banner thành công', data: { newBanner } });
@@ -131,7 +132,7 @@ const deleteBanner = async (req, res) => {
         res.status(404);
         throw new Error('Banner không tồn tại');
     }
-    const publicId = deletedBanner.imageUrl.substring(url.lastIndexOf('/') + 1, url.lastIndexOf('.'));
+    const publicId = deletedBanner.imageUrl?.substring(url.lastIndexOf('/') + 1, url.lastIndexOf('.'));
     await cloudinaryRemove('FashionShop/banners/' + publicId);
     res.status(200).json({ message: 'Xóa banner thành công' });
 };

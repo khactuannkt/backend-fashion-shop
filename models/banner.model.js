@@ -4,21 +4,21 @@ const bannerSchema = new mongoose.Schema(
     {
         title: {
             type: String,
-            required: true,
+            // required: true,
         },
         index: {
             type: Number,
-            required: true,
+            // required: true,
             default: 0,
         },
         imageUrl: {
             type: String,
-            require: true,
+            // require: true,
         },
         linkTo: {
             type: String,
         },
-        role: {
+        type: {
             type: String,
             required: true,
             enum: ['slider', 'banner'],

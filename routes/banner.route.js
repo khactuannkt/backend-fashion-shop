@@ -19,7 +19,7 @@ bannerRouter.get(
 
 bannerRouter.post(
     '/',
-    multerUpload.single('bannerImage'),
+    multerUpload.single('banner'),
     validate.createBanner,
     protect,
     auth('staff', 'admin'),
@@ -27,7 +27,7 @@ bannerRouter.post(
 );
 bannerRouter.put(
     '/:id',
-    multerUpload.single('bannerImage'),
+    multerUpload.single('banner'),
     validate.updateBanner,
     protect,
     auth('staff', 'admin'),
