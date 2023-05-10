@@ -418,7 +418,7 @@ const createOrder = async (req, res, next) => {
                     res.status(400);
                     throw new Error('Mã giảm giá đã được sử dụng hết');
                 }
-                if (discountCodeExist.usedBy.includes(user)) {
+                if (discountCodeExist.usedBy.includes(req.user._id)) {
                     await session.abortTransaction();
                     res.status(400);
                     throw new Error('Mỗi mã giảm giá chỉ được sử dụng 1 lần. Bạn đã sử dụng mã này rồi');
@@ -762,7 +762,7 @@ const orderPaymentNotification = async (req, res) => {
         res.status(400);
         throw new Error('Thông tin xác nhận thanh toán không hợp lệ');
     }
-    order.statusHistory.push({ status: 'paid' });
+    order.statusHistory.push({ status: 'paid', updateBy: order.user });
     order.paymentInformation.paid = true;
     order.paymentInformation.paidAt = new Date();
     await order.paymentInformation.save();
