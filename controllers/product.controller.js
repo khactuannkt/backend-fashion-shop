@@ -20,13 +20,8 @@ const getProducts = async (req, res) => {
     const minPrice = parseInt(req.query.minPrice) || 0;
     const page = parseInt(req.query.page) || 0;
     const status = req.query.status || null;
-    const sortBy = validateConstants(productQueryParams, 'sort', req.query.sortBy);
-    let statusFilter;
-    if (!req.user || !req.user.role === 'admin' || !req.user.role === 'staff') {
-        statusFilter = validateConstants(productQueryParams, 'status', 'default');
-    } else if (req.user.role === 'admin' || req.user.role === 'staff') {
-        statusFilter = validateConstants(productQueryParams, 'status', status);
-    }
+
+    const sortBy = validateConstants(productQueryParams, 'sort', req.query.sortBy || 'default');
 
     const keyword = req.query.keyword
         ? {
@@ -68,6 +63,81 @@ const getProducts = async (req, res) => {
     const productFilter = {
         ...keyword,
         ...categoryFilter,
+        ...priceRangeFilter(minPrice, maxPrice),
+        ...ratingFilter(rating),
+    };
+    const count = await Product.countDocuments(productFilter);
+    //Check if product match keyword
+    if (count == 0) {
+        res.status(204);
+        throw new Error('Không có sản phẩm nào!');
+    }
+    //else
+    const products = await Product.find(productFilter)
+        .limit(limit)
+        .skip(limit * page)
+        .sort(sortBy)
+        .populate('category')
+        .populate('variants');
+
+    res.status(200).json({
+        message: 'Success',
+        data: { products, page, pages: Math.ceil(count / limit), total: count },
+    });
+};
+
+const getProductsByAdmin = async (req, res) => {
+    const limit = parseInt(req.query.limit) || 12;
+    const rating = parseInt(req.query.rating) || 0;
+    const maxPrice = parseInt(req.query.maxPrice) || 0;
+    const minPrice = parseInt(req.query.minPrice) || 0;
+    const page = parseInt(req.query.page) || 0;
+    const status = req.query.status || null;
+    let sortBy = req.query.sortBy || null;
+    sortBy = validateConstants(productQueryParams, 'sort', sortBy ? sortBy : 'newest');
+    let statusFilter = validateConstants(productQueryParams, 'status', status);
+
+    const keyword = req.query.keyword
+        ? {
+              $or: [
+                  {
+                      name: {
+                          $regex: req.query.keyword,
+                          $options: 'i',
+                      },
+                  },
+                  {
+                      keyword: {
+                          $elemMatch: {
+                              $regex: req.query.keyword,
+                              $options: 'i',
+                          },
+                      },
+                  },
+              ],
+          }
+        : {};
+
+    //Check if category existed
+    let categoryName = req.query.category || null;
+    let categoryIds = [];
+    if (!categoryName) {
+        categoryIds = await Category.find({ disabled: false }).select({ _id: 1 });
+    } else {
+        const findCategory = await Category.findOne({ _id: categoryName, disabled: false }).select({
+            _id: 1,
+            children: 1,
+        });
+        if (findCategory) {
+            categoryIds.push(findCategory._id, ...findCategory.children);
+        }
+    }
+    const categoryFilter = categoryIds.length > 0 ? { category: categoryIds } : {};
+
+    const productFilter = {
+        ...keyword,
+        ...categoryFilter,
+        ...statusFilter,
         ...priceRangeFilter(minPrice, maxPrice),
         ...ratingFilter(rating),
     };
@@ -186,14 +256,15 @@ const createProduct = async (req, res, next) => {
             variantsValue[`${attr.name}`].push(attr.value);
         });
     });
-    Object.keys(variantsValue).map((key) => {
+    console.log(variantsValue);
+    const countVariant = Object.keys(variantsValue).reduce((accumulator, key) => {
         const variantsSet = new Set(variantsValue[key]);
-        if (variantsSet.size < variantsValue[key].length) {
-            res.status(400);
-            throw new Error('Giá trị các biến thể không được trùng nhau');
-        }
-    });
-
+        return accumulator * variantsSet.size;
+    }, 1);
+    if (countVariant < variants.length) {
+        res.status(400);
+        throw new Error('Giá trị của các biến thể không được trùng nhau');
+    }
     //generate slug
     let generatedSlug = slug(name);
     const existSlug = await Product.findOne({ slug: generatedSlug });
@@ -202,6 +273,7 @@ const createProduct = async (req, res, next) => {
     }
     // upload image to cloundinary
     const images = [];
+    console.log('file: ' + req.files.length);
     if (req.files && req.files.length > 0) {
         const uploadListImage = req.files.map(async (image) => {
             const uploadImage = await cloudinaryUpload(image.path, 'FashionShop/products');
@@ -246,23 +318,30 @@ const createProduct = async (req, res, next) => {
                 keywords,
             });
             if (variants && variants.length > 0) {
-                let minPriceSale = 0;
-                let minPrice = 0;
                 let totalQuantity = 0;
-                const productVariants = variants.map((variant) => {
-                    totalQuantity += variant.quantity;
+                let minPriceSale = variants[0].priceSale;
+                let minPrice = variants[0].price;
+
+                const variantIds = [];
+                const createVariant = variants.map(async (variant) => {
+                    totalQuantity += Number(variant.quantity);
                     if (minPriceSale > variant.priceSale) {
                         minPriceSale = variant.priceSale;
                         minPrice = variant.price;
                     }
-                    return new Variant({ product: product._id, ...variant });
+                    // try {
+                    const newVariant = new Variant({ product: product._id, ...variant });
+                    console.log(newVariant);
+                    await newVariant.save({ session });
+                    variantIds.push(newVariant._id);
+                    // } catch (error) {
+                    //     console.log(error);
+                    //     await session.abortTransaction();
+                    //     res.status(400);
+                    //     throw new Error('Xảy ra lỗi trong quá trình tạo biến thể sản phẩm');
+                    // }
                 });
-                const variantIds = await Variant.insertMany(productVariants).session(session);
-                if (variantIds.length < variants.length) {
-                    await session.abortTransaction();
-                    res.status(400);
-                    throw new Error('Thông tin sản phẩm không hợp lệ');
-                }
+                await Promise.all(createVariant);
                 product.variants = variantIds;
                 product.price = minPrice;
                 product.priceSale = minPriceSale;
@@ -586,6 +665,7 @@ const productController = {
     getProducts,
     getProductRecommend,
     getAllProductsByAdmin,
+    getProductsByAdmin,
     createProduct,
     updateProduct,
     reviewProduct,

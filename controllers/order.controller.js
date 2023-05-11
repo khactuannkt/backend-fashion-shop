@@ -455,7 +455,7 @@ const createOrder = async (req, res, next) => {
                         discount = discountCodeExist.maximumDiscount;
                     }
                 }
-                discountCodeExist.usedBy.push(user);
+                discountCodeExist.usedBy.push(req.user._id);
                 discountCodeExist.used++;
                 await discountCodeExist.save({ session });
 

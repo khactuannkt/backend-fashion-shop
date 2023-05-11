@@ -15,6 +15,7 @@ productRouter.get(
     auth('staff', 'admin'),
     asyncHandler(productController.getAllProductsByAdmin),
 );
+productRouter.get('/admin', protect, auth('staff', 'admin'), asyncHandler(productController.getProductsByAdmin));
 productRouter.get('/:id', validate.getProductById, asyncHandler(productController.getProductById));
 productRouter.get('/', asyncHandler(productController.getProducts));
 productRouter.post(

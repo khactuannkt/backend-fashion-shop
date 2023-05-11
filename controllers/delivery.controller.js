@@ -81,7 +81,7 @@ const calculateFee = async (req, res) => {
         return res.status(400).json({ message: message });
     }
     const {
-        service_id = 53350,
+        service_id = 53320,
         to_district_id,
         to_ward_code,
         height = null,
