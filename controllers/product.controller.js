@@ -33,7 +33,7 @@ const getProducts = async (req, res) => {
                       },
                   },
                   {
-                      keyword: {
+                      keywords: {
                           $elemMatch: {
                               $regex: req.query.keyword,
                               $options: 'i',
@@ -107,7 +107,7 @@ const getProductsByAdmin = async (req, res) => {
                       },
                   },
                   {
-                      keyword: {
+                      keywords: {
                           $elemMatch: {
                               $regex: req.query.keyword,
                               $options: 'i',
@@ -248,7 +248,6 @@ const createProduct = async (req, res, next) => {
 
     const variantsValue = {};
     variants.map((variant) => {
-        console.log(variant.attributes);
         variant.attributes.map((attr) => {
             if (!variantsValue[`${attr.name}`]) {
                 variantsValue[`${attr.name}`] = [];
@@ -256,7 +255,6 @@ const createProduct = async (req, res, next) => {
             variantsValue[`${attr.name}`].push(attr.value);
         });
     });
-    console.log(variantsValue);
     const countVariant = Object.keys(variantsValue).reduce((accumulator, key) => {
         const variantsSet = new Set(variantsValue[key]);
         return accumulator * variantsSet.size;
@@ -273,7 +271,6 @@ const createProduct = async (req, res, next) => {
     }
     // upload image to cloundinary
     const images = [];
-    console.log('file: ' + req.files.length);
     if (req.files && req.files.length > 0) {
         const uploadListImage = req.files.map(async (image) => {
             const uploadImage = await cloudinaryUpload(image.path, 'FashionShop/products');
@@ -375,24 +372,34 @@ const updateProduct = async (req, res, next) => {
         return res.status(400).json({ message: message });
     }
 
-    const { name, description, category, images, brand, weight, length, height, width, keywords, variants } = req.body;
+    const { name, description, category, brand, weight, length, height, width } = req.body;
+
+    const variants = JSON.parse(req.body.variants) || [];
+    const keywords = JSON.parse(req.body.keywords) || [];
+    const images = JSON.parse(req.body.images) || [];
+    console.log(JSON.stringify(variants));
     //Check variants value
     const variantsValue = {};
+    let count = 0;
     variants.map((variant) => {
-        variant.attributes.map((attr) => {
-            if (!variantsValue[`${attr.name}`]) {
-                variantsValue[`${attr.name}`] = [];
-            }
-            variantsValue[`${attr.name}`].push(attr.value);
-        });
-    });
-    Object.keys(variantsValue).map((key) => {
-        const variantsSet = new Set(variantsValue[key]);
-        if (variantsSet.size < variantsValue[key].length) {
-            res.status(400);
-            throw new Error('Giá trị các biến thể không được trùng nhau');
+        if (variant.status != -1) {
+            variant.attributes.map((attr) => {
+                if (!variantsValue[`${attr.name}`]) {
+                    variantsValue[`${attr.name}`] = [];
+                }
+                variantsValue[`${attr.name}`].push(attr.value);
+            });
+            count++;
         }
     });
+    const countVariant = Object.keys(variantsValue).reduce((accumulator, key) => {
+        const variantsSet = new Set(variantsValue[key]);
+        return accumulator * variantsSet.size;
+    }, 1);
+    if (countVariant < count) {
+        res.status(400);
+        throw new Error('Giá trị của các biến thể không được trùng nhau');
+    }
 
     const currentProduct = await Product.findById(req.params.id);
     if (!currentProduct) {
@@ -473,49 +480,67 @@ const updateProduct = async (req, res, next) => {
             let minPriceSale = 0;
             let minPrice = 0;
             const variantUpdates = variants.map(async (variant) => {
-                totalQuantity += variant.quantity;
-                if (!variant.priceSale) {
-                    variant.priceSale = variant.price;
-                }
-                if (minPriceSale > variant.priceSale) {
-                    minPriceSale = variant.priceSale;
-                    minPrice = variant.price;
-                }
-                if (variant.status == 1) {
-                    const newVariant = new Variant({
-                        product: currentProduct._id,
-                        ...variant,
-                    });
-                    await newVariant.save({ session });
-                    updateVariantsId.push(newVariant._id);
-                } else {
-                    if (oldVariantsId.indexOf(variant._id) != -1) {
+                if (variant.status == 1 || variant.status == 0) {
+                    if (minPrice == 0) {
+                        minPrice = variant.price;
+                    }
+                    if (minPriceSale == 0) {
+                        minPriceSale = variant.priceSale;
+                    }
+                    totalQuantity += variant.quantity;
+                    if (!variant.priceSale) {
+                        variant.priceSale = variant.price;
+                    }
+                    if (minPriceSale > variant.priceSale) {
+                        minPriceSale = variant.priceSale;
+                        minPrice = variant.price;
+                    }
+                    if (variant.status == 1) {
+                        const newVariant = new Variant({
+                            product: currentProduct._id,
+                            ...variant,
+                        });
+                        await newVariant.save({ session });
+                        updateVariantsId.push(newVariant._id);
+                    } else if (oldVariantsId.indexOf(variant._id) != -1) {
                         const variantUpdate = await Variant.findById(variant._id);
                         if (!variantUpdate) {
                             await session.abortTransaction();
-                            res.status(400);
+                            res.status(404);
                             throw new Error(`Mã biến thể"${variant._id}" cần cập nhật không tồn tại`);
-                        }
-                        if (variant.status == -1) {
-                            variantUpdate.remove({ session });
                         } else {
                             const result = Object.assign((variantUpdate, variant));
-                            if (result === variantUpdate) {
+
+                            if (result._id == variantUpdate._id.toString()) {
                                 await variantUpdate.save({ session });
                                 updateVariantsId.push(variantUpdate._id);
                             } else {
                                 await session.abortTransaction();
                                 res.status(500);
-                                throw new Error('Xảy ra lỗi trong quá trình cập nhật sản phẩm');
+                                throw new Error('Xảy ra lỗi trong quá trình cập nhật biến thể sản phẩm');
                             }
                         }
+                    }
+                } else if (variant.status == -1) {
+                    if (oldVariantsId.indexOf(variant._id) != -1) {
+                        const variantUpdate = await Variant.findById(variant._id);
+                        if (!variantUpdate) {
+                            await session.abortTransaction();
+                            res.status(404);
+                            throw new Error(`Mã biến thể"${variant._id}" cần xóa không tồn tại`);
+                        }
+                        await variantUpdate.remove({ session });
                     } else {
                         await session.abortTransaction();
                         res.status(400);
                         throw new Error(
-                            `Mã biến thể "${variant._id}" không thuộc danh sách các biến thể của sản phẩm này`,
+                            `Mã biến thể "${variant._id}" cần xóa không thuộc danh sách các biến thể của sản phẩm này`,
                         );
                     }
+                } else {
+                    await session.abortTransaction();
+                    res.status(400);
+                    throw new Error('Tồn tại biến thể sản phẩm không hợp lệ');
                 }
             });
             await Promise.all(variantUpdates);
@@ -529,7 +554,7 @@ const updateProduct = async (req, res, next) => {
             currentProduct.height = height;
             currentProduct.width = width;
 
-            const updatedProduct = await currentProduct.save({ session });
+            const updatedProduct = await (await currentProduct.save({ session })).populate(['variants', 'category']);
 
             res.status(200).json({ message: 'Cập nhật Sản phẩm thành công', data: { updatedProduct } });
         }, transactionOptions);

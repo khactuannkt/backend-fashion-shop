@@ -875,7 +875,7 @@ const cancelOrder = async (req, res, next) => {
         return res.status(400).json({ message: message });
     }
     const orderId = req.params.id;
-    const description = req.body.description.toString().trim() || '';
+    const description = req.body.description?.toString()?.trim() || '';
     const order = await Order.findById(orderId);
     if (!order) {
         res.status(404);
@@ -927,17 +927,18 @@ const cancelOrder = async (req, res, next) => {
     };
     try {
         await session.withTransaction(async () => {
-            for (const orderItem of order.orderItems) {
-                const returnedVariant = await Variant.findOneAndUpdate(
-                    { _id: orderItem.variant },
+            order.orderItems.map(async (orderItem) => {
+                const updateProduct = Product.findOneAndUpdate(
+                    { _id: orderItem.product },
+                    { $inc: { totalSales: -orderItem.quantity, quantity: +orderItem.quantity } },
+                ).session(session);
+                const updateVariant = Variant.findOneAndUpdate(
+                    { product: product._id, attributes: orderItem.attributes },
                     { $inc: { quantity: +orderItem.quantity } },
                     { new: true },
                 ).session(session);
-                await Product.findOneAndUpdate(
-                    { _id: returnedVariant.product },
-                    { $inc: { totalSales: -orderItem.quantity, quantity: +orderItem.quantity } },
-                ).session(session);
-            }
+                await Promise.all([updateProduct, updateVariant]);
+            });
             order.status = 'cancelled';
             order.statusHistory.push({ status: 'cancelled', description: description });
             const cancelledOrder = await order.save();
