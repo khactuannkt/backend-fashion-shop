@@ -575,12 +575,7 @@ const validate = {
             .isInt({ min: 0.01 })
             .withMessage('Chiều rộng của sản phẩm phải là số nguyên và phải lớn hơn 0'),
 
-        check('keywords').isArray().withMessage('Danh sách từ khóa sản phẩm phải là mảng '),
-        check('variants')
-            .notEmpty()
-            .withMessage('Danh sách các biến thể không được để trống')
-            .isArray()
-            .withMessage('Danh sách biến thể phải là mảng'),
+        check('variants').notEmpty().withMessage('Danh sách các biến thể không được để trống'),
         check('variants.*.price')
             .notEmpty()
             .withMessage('Giá của các biến thể sản phẩm không được để trống')
@@ -628,8 +623,8 @@ const validate = {
                 }
                 return true;
             }),
-        check('images').isArray().withMessage('Danh sách hình ảnh phải là mảng'),
-        check('images.*').isURL().withMessage('Danh sách hình ảnh phải là các URL hoặc file'),
+        // check('images').isArray().withMessage('Danh sách hình ảnh phải là mảng'),
+        // check('images.*').isURL().withMessage('Danh sách hình ảnh phải là các URL hoặc file'),
         check('brand').trim().notEmpty().withMessage('Thương hiệu sản phẩm không được để trống'),
         check('keywords').isArray().withMessage('Danh sách từ khóa sản phẩm phải là mảng '),
         check('variants')

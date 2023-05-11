@@ -14,7 +14,7 @@ const orderStatus = mongoose.Schema(
         },
         updateBy: {
             type: mongoose.Schema.Types.ObjectId,
-            required: true,
+            // required: true,
             ref: 'User',
         },
     },

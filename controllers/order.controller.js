@@ -397,7 +397,8 @@ const createOrder = async (req, res, next) => {
 
             //Check discount code
             if (discountCode) {
-                const discountCodeExist = await DiscountCode.findOne({ code: String(discountCode), disabled: false });
+                const code = String(discountCode) || '';
+                const discountCodeExist = await DiscountCode.findOne({ code: code, disabled: false });
                 if (!discountCodeExist) {
                     await session.abortTransaction();
                     res.status(400);
@@ -458,18 +459,6 @@ const createOrder = async (req, res, next) => {
                 discountCodeExist.used++;
                 await discountCodeExist.save({ session });
 
-                // const checkDiscount = await checkDiscountCode(
-                //     discountCode,
-                //     productCheckResult.orderedProductList,
-                //     productCheckResult.totalProductPrice,
-                //     req.user._id,
-                //     session,
-                // );
-                // if (checkDiscount.error) {
-                //     await session.abortTransaction();
-                //     res.status(400);
-                //     throw new Error(checkDiscount.message);
-                // }
                 orderInfor.totalDiscount = discount;
             }
 
@@ -480,7 +469,10 @@ const createOrder = async (req, res, next) => {
             } else {
                 orderInfor.totalPayment = 0;
             }
-
+            let leadTime = new Date(leadTimeResult.leadTime * 1000);
+            if (leadTime == 'Invalid Date') {
+                leadTime = null;
+            }
             const newShippingInfor = new Delivery({
                 order: orderInfor._id,
                 client: req.user._id,
@@ -497,7 +489,7 @@ const createOrder = async (req, res, next) => {
                 service_id: 53320,
                 items: orderInfor.orderItems,
                 deliveryFee: deliveryFee.fee,
-                leadTime: leadTimeResult.leadTime,
+                leadTime: leadTime,
                 height: size.height,
                 length: size.length,
                 weight: size.weight,
@@ -593,7 +585,7 @@ const confirmOrder = async (req, res) => {
         return res.status(400).json({ message: message });
     }
     const orderId = req.params.id;
-    const description = req.body.description.toString().trim() || '';
+    const description = String(req.body.description) || '';
     const order = await Order.findOne({ _id: orderId, disabled: false });
     if (!order) {
         res.status(404);
@@ -618,7 +610,7 @@ const confirmOrder = async (req, res) => {
         default:
             break;
     }
-    order.statusHistory.push({ status: 'confirm', description: description });
+    order.statusHistory.push({ status: 'confirm', description: description, updateBy: req.user._id });
     order.status = 'confirm';
 
     const updateOrder = await order.save();
@@ -633,7 +625,7 @@ const confirmDelivery = async (req, res) => {
     }
     const orderId = req.params.id;
     const description = req.body.description.toString().trim() || '';
-    const order = await Order.findOne({ _id: orderId, disabled: false });
+    const order = await Order.findOne({ _id: orderId, disabled: false }).populate('delivery');
     if (!order) {
         res.status(404);
         throw new Error('Đơn hàng không tồn tại!');
@@ -657,7 +649,62 @@ const confirmDelivery = async (req, res) => {
         default:
             break;
     }
-    order.statusHistory.push({ status: 'delivering', description: description });
+    // const config = {
+    //     data: JSON.stringify({
+    //         payment_type_id,
+    //         note,
+    //         from_name,
+    //         from_phone,
+    //         from_address,
+    //         from_ward_name,
+    //         from_district_name,
+    //         from_province_name,
+    //         required_note,
+    //         return_name,
+    //         return_phone,
+    //         return_address,
+    //         return_ward_name,
+    //         return_district_name,
+    //         return_province_name,
+    //         client_order_code,
+    //         to_name,
+    //         to_phone,
+    //         to_address,
+    //         to_ward_name,
+    //         to_district_name,
+    //         to_province_name,
+    //         cod_amount,
+    //         content,
+    //         weight,
+    //         length,
+    //         width,
+    //         height,
+    //         cod_failed_amount,
+    //         pick_station_id,
+    //         deliver_station_id,
+    //         insurance_value,
+    //         service_id,
+    //         service_type_id,
+    //         coupon,
+    //         pick_shift,
+    //         pickup_time,
+    //         items,
+    //     }),
+    // };
+    // const deliveryInfo = await GHN_Request.get('v2/shipping-order/create', config)
+    //     .then((response) => {
+    //         return response.data.data;
+    //     })
+    //     .catch((error) => {
+    //         if (error.response.status && error.response.status == '400') {
+    //             res.status(error.response.status);
+    //             throw new Error('Sai thông tin đầu vào. Vui lòng thử lại.');
+    //         } else {
+    //             res.status(500);
+    //             throw new Error(error.response.message || error.message);
+    //         }
+    //     });
+    order.statusHistory.push({ status: 'delivering', description: description, updateBy: req.user._id });
     order.status = 'delivering';
     const updateOrder = await order.save();
     res.status(200).json({ message: 'Xác nhận đang giao hàng thành công', data: { updateOrder } });
@@ -670,7 +717,7 @@ const confirmDelivered = async (req, res) => {
         return res.status(400).json({ message: message });
     }
     const orderId = req.params.id;
-    const description = req.body.description.toString().trim() || '';
+    const description = req.body.description?.toString()?.trim() || '';
     const order = await Order.findOne({ _id: orderId, disabled: false });
     if (!order) {
         res.status(404);
@@ -693,7 +740,7 @@ const confirmDelivered = async (req, res) => {
         default:
             break;
     }
-    order.statusHistory.push({ status: 'delivered', description: description });
+    order.statusHistory.push({ status: 'delivered', description: description, updateBy: req.user._id });
     order.status = 'delivered';
     const updateOrder = await order.save();
     res.status(200).json({ message: 'Xác nhận đã giao hàng thành công', data: { updateOrder } });
@@ -706,7 +753,7 @@ const confirmReceived = async (req, res) => {
         return res.status(400).json({ message: message });
     }
     const orderId = req.params.id;
-    const description = req.body.description.toString().trim() || '';
+    const description = req.body.description?.toString()?.trim() || '';
     const order = await Order.findOne({ _id: orderId, disabled: false });
     if (!order) {
         res.status(404);
@@ -731,7 +778,7 @@ const confirmReceived = async (req, res) => {
         default:
             break;
     }
-    order.statusHistory.push({ status: 'completed', description: description });
+    order.statusHistory.push({ status: 'completed', description: description, updateBy: req.user._id });
     order.status = 'completed';
     const updateOrder = await order.save();
     res.status(200).json({ message: 'Xác nhận đã nhận hàng thành công', data: { updateOrder } });

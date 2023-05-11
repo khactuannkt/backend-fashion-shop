@@ -161,8 +161,9 @@ const createProduct = async (req, res, next) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-    let { name, description, category, brand, weight, length, height, width, keywords, variants } = req.body;
-
+    let { name, description, category, brand, weight, length, height, width } = req.body;
+    const variants = JSON.parse(req.body.variants) || [];
+    const keywords = JSON.parse(req.body.keywords) || [];
     const findProduct = Product.findOne({ name });
     const findCategory = Category.findById(category);
     const [existedProduct, existedCategory] = await Promise.all([findProduct, findCategory]);
@@ -177,6 +178,7 @@ const createProduct = async (req, res, next) => {
 
     const variantsValue = {};
     variants.map((variant) => {
+        console.log(variant.attributes);
         variant.attributes.map((attr) => {
             if (!variantsValue[`${attr.name}`]) {
                 variantsValue[`${attr.name}`] = [];
