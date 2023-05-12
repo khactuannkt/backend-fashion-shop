@@ -3,36 +3,17 @@ import { ObjectId } from 'mongodb';
 
 const validate = {
     //====================Validate Banner==================
-    getBannerById: [
-        check('id').custom((id) => {
-            if (!ObjectId.isValid(id)) {
-                throw new Error('ID không hợp lệ');
+    createBanner: [
+        check('title').trim().not().isEmpty().withMessage('Title is required'),
+        check('type').custom((type) => {
+            if (!type || type.trim() == '') {
+                throw new Error('type is required');
+            }
+            if (type !== 'slider' && type !== 'banner') {
+                throw new Error('type must be "slider" or "banner"');
             }
             return true;
         }),
-    ],
-    createBanner: [
-        // check('title').trim().not().isEmpty().withMessage('Title is required'),
-        // check('imageUrl').isURL().withMessage('URL image must be an url'),
-        // check('type').custom((type) => {
-        //     if (!type || type.trim() == '') {
-        //         throw new Error('type is required');
-        //     }
-        //     if (type !== 'slider' && type !== 'banner') {
-        //         throw new Error('type must be "slider" or "banner"');
-        //     }
-        //     return true;
-        // }),
-        // check('index').custom((index) => {
-        //     if (!index || index.trim() === '') {
-        //         throw new Error('Index is required');
-        //     }
-        //     const _index = Number(index);
-        //     if (!_index || _index <= 0) {
-        //         throw new Error('Index must be an integer and must be greater than 0');
-        //     }
-        //     return true;
-        // }),
     ],
     updateBanner: [
         check('id').custom((id) => {
@@ -41,8 +22,7 @@ const validate = {
             }
             return true;
         }),
-        // check('title').trim().not().isEmpty().withMessage('Title is required'),
-        // check('imageUrl').isURL().withMessage('URL image must be an url'),
+        check('title').trim().not().isEmpty().withMessage('Title is required'),
     ],
 
     //====================Validate Cart==================

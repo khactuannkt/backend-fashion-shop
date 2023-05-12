@@ -47,7 +47,7 @@ const createDiscountCode = async (req, res) => {
 
     const discountCodeExists = await DiscountCode.findOne({ code: code });
     if (discountCodeExists) {
-        res.status(409);
+        res.status(400);
         throw new Error('Mã giảm giá đã tồn tại');
     }
 
@@ -85,7 +85,7 @@ const updateDiscountCode = async (req, res) => {
     }
     const discountCodeExists = await DiscountCode.findOne({ code: code });
     if (discountCodeExists && discountCodeExists._id.toString() !== currentDiscountCode._id.toString()) {
-        res.status(409);
+        res.status(400);
         throw new Error('Mã giảm giá đã tồn tại');
     }
 

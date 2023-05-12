@@ -6,12 +6,12 @@ const bannerSchema = new mongoose.Schema(
             type: String,
             // required: true,
         },
-        index: {
-            type: Number,
-            // required: true,
-            default: 0,
-        },
-        imageUrl: {
+        // index: {
+        //     type: Number,
+        //     required: true,
+        //     default: 0,
+        // },
+        image: {
             type: String,
             // require: true,
         },

@@ -71,21 +71,21 @@ const getOrderById = async (req, res) => {
 };
 
 const getOrders = async (req, res) => {
-    const pageSize = Number(req.query.pageSize) || 20; //EDIT HERE
-    const page = Number(req.query.pageNumber) || 1;
-    const dateOrderSortBy = validateConstants(orderQueryParams, 'date', req.query.dateOrder);
-    const orderStatusFilter = validateConstants(orderQueryParams, 'orderStatus', req.query.orderStatus);
+    const limit = Number(req.query.limit) || 20; //EDIT HERE
+    const page = Number(req.query.page) || 0;
+    const sortBy = validateConstants(orderQueryParams, 'sort', req.query.sortBy);
+    const orderStatusFilter = validateConstants(orderQueryParams, 'status', req.query.status);
     const orderFilter = {
         ...orderStatusFilter,
     };
     const count = await Order.countDocuments(orderFilter);
     const orders = await Order.find({ ...orderFilter })
         .populate(['delivery', 'paymentInformation'])
-        .limit(pageSize)
-        .skip(pageSize * (page - 1))
-        .sort({ ...dateOrderSortBy });
+        .limit(limit)
+        .skip(limit * page)
+        .sort({ ...sortBy });
     res.status(200);
-    res.json({ orders, page, pages: Math.ceil(count / pageSize), totalOrders: count });
+    res.json({ data: { orders, page, pages: Math.ceil(count / limit), total: count } });
 };
 
 const checkOrderProductList = async (size, orderItems) => {
@@ -624,7 +624,7 @@ const confirmDelivery = async (req, res) => {
         return res.status(400).json({ message: message });
     }
     const orderId = req.params.id;
-    const description = req.body.description.toString().trim() || '';
+    const description = req.body.description?.toString().trim() || '';
     const order = await Order.findOne({ _id: orderId, disabled: false }).populate('delivery');
     if (!order) {
         res.status(404);
@@ -649,61 +649,43 @@ const confirmDelivery = async (req, res) => {
         default:
             break;
     }
-    // const config = {
-    //     data: JSON.stringify({
-    //         payment_type_id,
-    //         note,
-    //         from_name,
-    //         from_phone,
-    //         from_address,
-    //         from_ward_name,
-    //         from_district_name,
-    //         from_province_name,
-    //         required_note,
-    //         return_name,
-    //         return_phone,
-    //         return_address,
-    //         return_ward_name,
-    //         return_district_name,
-    //         return_province_name,
-    //         client_order_code,
-    //         to_name,
-    //         to_phone,
-    //         to_address,
-    //         to_ward_name,
-    //         to_district_name,
-    //         to_province_name,
-    //         cod_amount,
-    //         content,
-    //         weight,
-    //         length,
-    //         width,
-    //         height,
-    //         cod_failed_amount,
-    //         pick_station_id,
-    //         deliver_station_id,
-    //         insurance_value,
-    //         service_id,
-    //         service_type_id,
-    //         coupon,
-    //         pick_shift,
-    //         pickup_time,
-    //         items,
-    //     }),
-    // };
-    // const deliveryInfo = await GHN_Request.get('v2/shipping-order/create', config)
-    //     .then((response) => {
-    //         return response.data.data;
-    //     })
-    //     .catch((error) => {
-    //         if (error.response.status && error.response.status == '400') {
-    //             res.status(error.response.status);
-    //             throw new Error('Sai thông tin đầu vào. Vui lòng thử lại.');
-    //         } else {
-    //             res.status(500);
-    //             throw new Error(error.response.message || error.message);
-    //         }
-    //     });
+    const config = {
+        data: JSON.stringify({
+            payment_type_id: 1,
+            note: '',
+            required_note: order.delivery.required_note,
+            client_order_code: order.user,
+            to_name: order.delivery.to_name,
+            to_phone: order.delivery.to_phone,
+            to_address: order.delivery.to_address,
+            to_ward_name: order.delivery.to_ward_name,
+            to_district_name: order.delivery.to_district_name,
+            to_province_name: order.delivery.to_province_name,
+            cod_amount: order.totalPayment,
+            // content,
+            weight: order.delivery.weight,
+            length: order.delivery.length,
+            width: order.delivery.width,
+            height: order.delivery.height,
+            insurance_value: order.delivery.insurance_value,
+            service_id: order.delivery.service_id,
+            // pickup_time,
+            items: order.delivery.items,
+        }),
+    };
+    const deliveryInfo = await GHN_Request.get('v2/shipping-order/create', config)
+        .then((response) => {
+            return response.data.data;
+        })
+        .catch((error) => {
+            if (error.response.status && error.response.status == '400') {
+                res.status(error.response.status);
+                throw new Error('Sai thông tin đầu vào. Vui lòng thử lại.');
+            } else {
+                res.status(500);
+                throw new Error(error.response.message || error.message);
+            }
+        });
     order.statusHistory.push({ status: 'delivering', description: description, updateBy: req.user._id });
     order.status = 'delivering';
     const updateOrder = await order.save();

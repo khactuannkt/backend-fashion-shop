@@ -44,19 +44,20 @@ const commentQueryParams = {
 // };
 
 const orderQueryParams = {
-    date: {
+    sort: {
         newest: { createdAt: 'desc' },
         latest: { createdAt: 'asc' },
         default: { createdAt: 'desc' },
     },
-    orderStatus: {
-        placed: { status: 'Placed' },
-        approved: { status: 'Approved' },
-        delivering: { status: 'Delivering' },
-        paid: { status: 'Paid' },
-        completed: { status: 'Completed' },
-        failed: { status: 'Failed' },
-        cancelled: { status: 'Cancelled' },
+    status: {
+        placed: { status: 'placed' },
+        confirm: { status: 'confirm' },
+        delivering: { status: 'delivering' },
+        delivered: { status: 'delivered' },
+        paid: { statusHistory: { $elemMatch: { status: 'paid' } } },
+        unpaid: { statusHistory: { $elemMatch: { status: { $ne: 'paid' } } } },
+        completed: { status: 'completed' },
+        cancelled: { status: 'cancelled' },
         default: {},
     },
 };

@@ -52,7 +52,7 @@ const createCategory = async (req, res, next) => {
     const children = req.body.children ? JSON.parse(req.body.children) : [];
     const categoryExists = await Category.findOne({ name: name.trim() });
     if (categoryExists) {
-        res.status(409);
+        res.status(400);
         throw new Error('Danh mục đã tồn tại');
     }
 
@@ -116,7 +116,7 @@ const createCategory = async (req, res, next) => {
                         const childrenCategoryExists = await Category.findOne({ name: item.name.trim() });
                         if (childrenCategoryExists) {
                             await session.abortTransaction();
-                            res.status(409);
+                            res.status(400);
                             throw new Error('Danh mục đã tồn tại');
                         }
                         //generate slug
@@ -201,7 +201,7 @@ const updateCategory = async (req, res, next) => {
         //check the existence of the category
         const categoryExists = await Category.findOne({ name: name.trim() });
         if (categoryExists && categoryExists.name != currentCategory.name) {
-            res.status(409);
+            res.status(400);
             throw new Error('Danh mục đã tồn tại');
         }
         currentCategory.name = name.trim();

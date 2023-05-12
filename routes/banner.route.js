@@ -9,17 +9,11 @@ const bannerRouter = express.Router();
 
 bannerRouter.get('/', asyncHandler(bannerController.getBanners));
 
-bannerRouter.get(
-    '/:id',
-    validate.getBannerById,
-    protect,
-    auth('staff', 'admin'),
-    asyncHandler(bannerController.getBannerById),
-);
+bannerRouter.get('/:id', protect, auth('staff', 'admin'), asyncHandler(bannerController.getBannerById));
 
 bannerRouter.post(
     '/',
-    multerUpload.single('banner'),
+    multerUpload.single('imageFile'),
     validate.createBanner,
     protect,
     auth('staff', 'admin'),
@@ -27,7 +21,7 @@ bannerRouter.post(
 );
 bannerRouter.put(
     '/:id',
-    multerUpload.single('banner'),
+    multerUpload.single('imageFile'),
     validate.updateBanner,
     protect,
     auth('staff', 'admin'),

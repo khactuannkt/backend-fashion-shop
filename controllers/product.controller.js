@@ -9,9 +9,6 @@ import { productQueryParams, validateConstants, priceRangeFilter, ratingFilter }
 import { cloudinaryUpload, cloudinaryRemove } from '../utils/cloudinary.js';
 import { validationResult } from 'express-validator';
 import slug from 'slug';
-import difference from 'lodash.difference';
-import differenceBy from 'lodash.differenceby';
-import { url } from 'inspector';
 
 const getProducts = async (req, res) => {
     const limit = parseInt(req.query.limit) || 12;
@@ -377,7 +374,6 @@ const updateProduct = async (req, res, next) => {
     const variants = JSON.parse(req.body.variants) || [];
     const keywords = JSON.parse(req.body.keywords) || [];
     const images = JSON.parse(req.body.images) || [];
-    console.log(JSON.stringify(variants));
     //Check variants value
     const variantsValue = {};
     let count = 0;
@@ -509,16 +505,13 @@ const updateProduct = async (req, res, next) => {
                             res.status(404);
                             throw new Error(`Mã biến thể"${variant._id}" cần cập nhật không tồn tại`);
                         } else {
-                            const result = Object.assign((variantUpdate, variant));
-
-                            if (result._id == variantUpdate._id.toString()) {
-                                await variantUpdate.save({ session });
-                                updateVariantsId.push(variantUpdate._id);
-                            } else {
-                                await session.abortTransaction();
-                                res.status(500);
-                                throw new Error('Xảy ra lỗi trong quá trình cập nhật biến thể sản phẩm');
-                            }
+                            variantUpdate.attributes = variant.attributes || variantUpdate.attributes;
+                            variantUpdate.price = variant.price || variantUpdate.price;
+                            variantUpdate.priceSale = variant.priceSale || variantUpdate.priceSale;
+                            // variantUpdate.image = variant.image || variantUpdate.image;
+                            variantUpdate.quantity = variant.quantity || variantUpdate.quantity;
+                            await variantUpdate.save({ session });
+                            updateVariantsId.push(variantUpdate._id);
                         }
                     }
                 } else if (variant.status == -1) {
@@ -544,7 +537,6 @@ const updateProduct = async (req, res, next) => {
                 }
             });
             await Promise.all(variantUpdates);
-
             currentProduct.variants = updateVariantsId;
             currentProduct.price = minPrice;
             currentProduct.priceSale = minPriceSale;
