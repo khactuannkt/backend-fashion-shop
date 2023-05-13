@@ -38,18 +38,12 @@ const createCategory = async (req, res, next) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        if (req.file) {
-            fs.unlink(req.file.path, (error) => {
-                if (error) {
-                    throw new Error(error);
-                }
-            });
-        }
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
     const { name, level, parent, description } = req.body;
     const children = req.body.children ? JSON.parse(req.body.children) : [];
+    const imageFile = req.body.imageFile ? JSON.parse(req.body.imageFile) : '';
     const categoryExists = await Category.findOne({ name: name.trim() });
     if (categoryExists) {
         res.status(400);
@@ -139,33 +133,17 @@ const createCategory = async (req, res, next) => {
                 category.children = childrenCategory;
             }
             let imageUrl = '';
-            if (req.file) {
-                const uploadImage = await cloudinaryUpload(req.file.path, 'FashionShop/categories');
+            if (imageFile && imageFile.trim() !== '') {
+                const uploadImage = await cloudinaryUpload(imageFile, 'FashionShop/categories');
                 if (!uploadImage) {
                     await session.abortTransaction();
-                    res.status(500);
-                    throw new Error('Some category image were not uploaded due to an unknown error');
+                    res.status(502);
+                    throw new Error('Xảy ra lỗi trong quá trình đăng tải hình ảnh danh mục');
                 }
                 imageUrl = uploadImage.secure_url;
                 category.image = imageUrl;
-                fs.unlink(req.file.path, async (error) => {
-                    if (error) {
-                        await session.abortTransaction();
-                        res.status(500);
-                        throw new Error(error);
-                    }
-                });
             }
-            // else if (image && image.trim() !== '') {
-            //     const uploadImage = await cloudinaryUpload(image, 'FashionShop/categories');
-            //     if (!uploadImage) {
-            //         throw new Error('Some category image were not uploaded due to an unknown error');
-            //     }
-            //     imageUrl = uploadImage.secure_url;
-            // }
-            // if (imageUrl.length > 0) {
-            //     category.image = imageUrl;
-            // }
+
             const newCategory = await (await category.save({ session })).populate('children');
             if (parentCategory) {
                 await parentCategory.save({ session });
@@ -189,12 +167,13 @@ const updateCategory = async (req, res, next) => {
     const categoryId = req.params.id || null;
 
     //find category by id
-    const currentCategory = await Category.findById(categoryId);
+    const currentCategory = await Category.findOne({ _id: categoryId });
     if (!currentCategory) {
         res.status(404);
         throw new Error('Danh mục không tồn tại');
     }
     const { name, description, level, image, parent } = req.body;
+    const imageFile = req.body.imageFile ? JSON.parse(req.body.imageFile) : '';
     let newParentCat, currentParentCat;
 
     if (currentCategory.name !== name) {
@@ -250,19 +229,13 @@ const updateCategory = async (req, res, next) => {
     }
 
     let imageUrl = '';
-    if (req.file) {
-        const uploadImage = await cloudinaryUpload(req.file.path, 'FashionShop/categories');
+    if (imageFile && imageFile.trim() !== '' && currentCategory.image != imageFile) {
+        const uploadImage = await cloudinaryUpload(imageFile, 'FashionShop/categories');
         if (!uploadImage) {
             throw new Error('Some category image were not uploaded due to an unknown error');
         }
         imageUrl = uploadImage.secure_url;
-        fs.unlink(req.file.path, (error) => {
-            if (error) {
-                res.status(500);
-                throw new Error(error);
-            }
-        });
-    } else if (image && image.trim() !== '' && currentCategory.image !== image) {
+    } else if (image && image.trim() !== '' && currentCategory.image != image) {
         const uploadImage = await cloudinaryUpload(image, 'FashionShop/categories');
         if (!uploadImage) {
             throw new Error('Some category image were not uploaded due to an unknown error');
@@ -270,9 +243,10 @@ const updateCategory = async (req, res, next) => {
         imageUrl = uploadImage.secure_url;
     }
     if (imageUrl.length > 0) {
-        const publicId = currentCategory.image.substring(url.lastIndexOf('/') + 1, url.lastIndexOf('.'));
-        await cloudinaryRemove('FashionShop/categories/' + publicId);
         currentCategory.image = imageUrl;
+        let url = currentCategory.image;
+        const publicId = url.substring(url.lastIndexOf('/') + 1, url.lastIndexOf('.'));
+        await cloudinaryRemove('FashionShop/categories/' + publicId);
     }
 
     const updateCategory = await currentCategory.save();
@@ -284,13 +258,10 @@ const updateCategory = async (req, res, next) => {
     }
     res.status(200).json({ message: 'Cập nhật danh mục thành công', data: { updateCategory } });
 };
-const deleteCategory = async (req, res, next) => {
+const deleteCategory = async (req, res) => {
     const categoryId = req.params.id || null;
-    if (!ObjectId.isValid(categoryId)) {
-        res.status(400);
-        throw new Error('ID danh mục không hợp lệ');
-    }
-    const category = await Category.findById(categoryId);
+
+    const category = await Category.findOne({ _id: categoryId });
     if (!category) {
         res.status(404);
         throw new Error('Danh mục không tồn tại');
@@ -315,6 +286,11 @@ const deleteCategory = async (req, res, next) => {
                 parentCat.children.splice(index, 1);
             }
         }
+    }
+    if (!category.image && category.image.length > 0) {
+        let url = category.image;
+        const publicId = url.substring(url.lastIndexOf('/') + 1, url.lastIndexOf('.'));
+        await cloudinaryRemove('FashionShop/categories/' + publicId);
     }
     await category.remove();
     if (parentCat) {

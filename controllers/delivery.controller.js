@@ -20,13 +20,8 @@ const getDistrict = async (req, res) => {
             res.status(200).json({ message: 'Success', data: { districts: response.data.data } });
         })
         .catch((error) => {
-            if (error?.response?.status && error.response.status == '400') {
-                res.status(error.response.status);
-                throw new Error('Mã tỉnh/thành phố không tồn tại');
-            } else {
-                res.status(500);
-                throw new Error(error.response.message || error.message);
-            }
+            res.status(error.response.data.code || 500);
+            throw new Error(error.response.data.message || error.message || '');
         });
 };
 const getWard = async (req, res) => {
@@ -48,13 +43,8 @@ const getWard = async (req, res) => {
             res.status(200).json({ message: 'Success', data: { wards: response.data.data } });
         })
         .catch((error) => {
-            if (error?.response?.status && error.response.status == '400') {
-                res.status(error.response.status);
-                throw new Error('Mã quận/huyện không tồn tại');
-            } else {
-                res.status(500);
-                throw new Error(error.response.message || error.message);
-            }
+            res.status(error.response.data.code || 500);
+            throw new Error(error.response.data.message || error.message || '');
         });
 };
 const getProvince = async (req, res) => {
@@ -69,8 +59,8 @@ const getProvince = async (req, res) => {
             res.status(200).json({ message: 'Success', data: { provinces: response.data.data } });
         })
         .catch((error) => {
-            res.status(500);
-            throw new Error(error.response.message || error.message);
+            res.status(error.response.data.code || 500);
+            throw new Error(error.response.data.message || error.message || '');
         });
 };
 const calculateFee = async (req, res) => {
@@ -118,13 +108,8 @@ const calculateFee = async (req, res) => {
             return response.data.data;
         })
         .catch((error) => {
-            if (error?.response?.status && error.response.status == '400') {
-                res.status(error.response.status);
-                throw new Error('Sai thông tin đầu vào. Vui lòng thử lại.');
-            } else {
-                res.status(500);
-                throw new Error(error.response.message || error.message);
-            }
+            res.status(error.response.data.code || 500);
+            throw new Error(error.response.data.message || error.message || '');
         });
 
     const leadTimeRequest = GHN_Request.get('v2/shipping-order/leadtime', configLeadTime)
@@ -132,13 +117,8 @@ const calculateFee = async (req, res) => {
             return response.data.data;
         })
         .catch((error) => {
-            if (error?.response?.status && error.response.status == '400') {
-                res.status(error.response.status);
-                throw new Error('Sai thông tin đầu vào. Vui lòng thử lại.');
-            } else {
-                res.status(500);
-                throw new Error(error.response.message || error.message);
-            }
+            res.status(error.response.data.code || 500);
+            throw new Error(error.response.data.message || error.message || '');
         });
     const [fee, leadTime] = await Promise.all([calculateFeeRequest, leadTimeRequest]);
     res.status(200).json({ message: 'Success', data: { fee, leadTime } });
@@ -167,13 +147,8 @@ const estimatedDeliveryTime = async (req, res) => {
             res.status(200).json({ message: 'Success', data: { leadTime: response.data.data } });
         })
         .catch((error) => {
-            if (error?.response?.status && error.response.status == '400') {
-                res.status(error.response.status);
-                throw new Error('Sai thông tin đầu vào. Vui lòng thử lại.');
-            } else {
-                res.status(500);
-                throw new Error(error.response.message || error.message);
-            }
+            res.status(error.response.data.code || 500);
+            throw new Error(error.response.data.message || error.message || '');
         });
 };
 

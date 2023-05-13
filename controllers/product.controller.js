@@ -204,7 +204,7 @@ const getProductById = async (req, res) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-    const product = await Product.findById(req.params.id).populate('variants');
+    const product = await Product.findOne({ _id: req.params.id }).populate('variants');
     if (!product) {
         res.status(404);
         throw new Error('Sản phẩm không tồn tại');
@@ -231,8 +231,10 @@ const createProduct = async (req, res, next) => {
     let { name, description, category, brand, weight, length, height, width } = req.body;
     const variants = JSON.parse(req.body.variants) || [];
     const keywords = JSON.parse(req.body.keywords) || [];
+    const imageFile = req.body.imageFile ? JSON.parse(req.body.imageFile) : '';
+
     const findProduct = Product.findOne({ name });
-    const findCategory = Category.findById(category);
+    const findCategory = Category.findOne({ _id: category });
     const [existedProduct, existedCategory] = await Promise.all([findProduct, findCategory]);
     if (existedProduct) {
         res.status(400);
@@ -266,29 +268,6 @@ const createProduct = async (req, res, next) => {
     if (existSlug) {
         generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
     }
-    // upload image to cloundinary
-    const images = [];
-    if (req.files && req.files.length > 0) {
-        const uploadListImage = req.files.map(async (image) => {
-            const uploadImage = await cloudinaryUpload(image.path, 'FashionShop/products');
-            if (!uploadImage) {
-                res.status(500);
-                throw new Error('Error while uploading image');
-            }
-            fs.unlink(image.path, (error) => {
-                if (error) {
-                    throw new Error(error);
-                }
-            });
-            return uploadImage.secure_url;
-        });
-        const imageList = await Promise.all(uploadListImage);
-        images.push(...imageList);
-    }
-    if (images.length === 0) {
-        res.status(400);
-        throw new Error('Thiếu hình ảnh. Vui lòng đăng tải ít nhất 1 hình ảnh');
-    }
 
     const session = await mongoose.startSession();
     const transactionOptions = {
@@ -307,7 +286,6 @@ const createProduct = async (req, res, next) => {
                 length,
                 height,
                 width,
-                images,
                 brand,
                 keywords,
             });
@@ -323,19 +301,33 @@ const createProduct = async (req, res, next) => {
                         minPriceSale = variant.priceSale;
                         minPrice = variant.price;
                     }
-                    // try {
                     const newVariant = new Variant({ product: product._id, ...variant });
                     console.log(newVariant);
                     await newVariant.save({ session });
                     variantIds.push(newVariant._id);
-                    // } catch (error) {
-                    //     console.log(error);
-                    //     await session.abortTransaction();
-                    //     res.status(400);
-                    //     throw new Error('Xảy ra lỗi trong quá trình tạo biến thể sản phẩm');
-                    // }
                 });
                 await Promise.all(createVariant);
+
+                // upload image to cloundinary
+                const images = [];
+                if (imageFile && imageFile.length > 0) {
+                    const uploadListImage = imageFile.map(async (image) => {
+                        const uploadImage = await cloudinaryUpload(image, 'FashionShop/products');
+                        if (!uploadImage) {
+                            res.status(502);
+                            throw new Error('Xảy ra lỗi trong quá trình đăng tải hình ảnh sản phẩm');
+                        }
+                        return uploadImage.secure_url;
+                    });
+                    const imageList = await Promise.all(uploadListImage);
+                    images.push(...imageList);
+                }
+                if (images.length === 0) {
+                    res.status(400);
+                    throw new Error('Thiếu hình ảnh. Vui lòng đăng tải ít nhất 1 hình ảnh');
+                }
+
+                product.images = images;
                 product.variants = variantIds;
                 product.price = minPrice;
                 product.priceSale = minPriceSale;

@@ -7,6 +7,10 @@ const deliverySchema = mongoose.Schema(
             required: true,
             ref: 'Order',
         },
+        deliveryCode: {
+            type: String,
+            default: '',
+        },
         client: {
             type: mongoose.Schema.Types.ObjectId,
             required: true,
@@ -89,6 +93,14 @@ const deliverySchema = mongoose.Schema(
         finish_date: {
             type: Date,
         },
+        statusHistory: [
+            {
+                status: {
+                    type: String,
+                },
+                updated_date: { type: Date },
+            },
+        ],
         status: {
             type: String,
         },
