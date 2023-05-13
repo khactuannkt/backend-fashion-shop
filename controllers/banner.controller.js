@@ -26,30 +26,44 @@ const createBanner = async (req, res) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-    const { title, imageUrl, linkTo, type } = req.body;
+    // const { title, imageUrl, linkTo, type } = req.body;
 
+    // let image = '';
+    // if (req.file) {
+    //     const uploadImage = await cloudinaryUpload(req.file.path, 'FashionShop/banners');
+    //     if (!uploadImage) {
+    //         throw new Error('Some banners were not uploaded due to an unknown error');
+    //     }
+    //     image = uploadImage.secure_url;
+    //     fs.unlink(req.file.path, (error) => {
+    //         if (error) {
+    //             res.status(500);
+    //             throw new Error(error);
+    //         }
+    //     });
+    // } else if (imageUrl && imageUrl.trim() !== '') {
+    //     const uploadImage = await cloudinaryUpload(imageUrl, 'FashionShop/banners');
+    //     if (!uploadImage) {
+    //         throw new Error('Some banners were not uploaded due to an unknown error');
+    //     }
+    //     image = uploadImage.secure_url;
+    // } else {
+    //     res.status(400);
+    //     throw new Error('Hình ảnh banner là giá trị bắt buộc');
+    // }
+    const { title, linkTo, type } = req.body;
+    const imageFile = JSON.parse(req.body.imageFile);
+    console.log(imageFile);
     let image = '';
-    if (req.file) {
-        const uploadImage = await cloudinaryUpload(req.file.path, 'FashionShop/banners');
-        if (!uploadImage) {
-            throw new Error('Some banners were not uploaded due to an unknown error');
-        }
-        image = uploadImage.secure_url;
-        fs.unlink(req.file.path, (error) => {
-            if (error) {
-                res.status(500);
-                throw new Error(error);
-            }
-        });
-    } else if (imageUrl && imageUrl.trim() !== '') {
-        const uploadImage = await cloudinaryUpload(imageUrl, 'FashionShop/banners');
+    if (imageFile && imageFile.trim() !== '') {
+        const uploadImage = await cloudinaryUpload(imageFile, 'FashionShop/banners');
         if (!uploadImage) {
             throw new Error('Some banners were not uploaded due to an unknown error');
         }
         image = uploadImage.secure_url;
     } else {
         res.status(400);
-        throw new Error('Hình ảnh banner là giá trị bắt buộc');
+        throw new Error('Hình ảnh banner không được để trống');
     }
 
     const banner = new Banner({
@@ -58,6 +72,7 @@ const createBanner = async (req, res) => {
         linkTo,
         type,
     });
+    console.log(banner);
     const newBanner = await banner.save();
     return res.status(201).json({ message: 'Thêm banner thành công', data: { newBanner } });
 };
