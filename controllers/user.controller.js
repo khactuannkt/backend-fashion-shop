@@ -163,7 +163,7 @@ const verifyEmail = async (req, res) => {
     user.emailVerificationToken = null;
     const verifiedUser = await user.save();
     if (!verifiedUser) {
-        res.status(500);
+        res.status(502);
         throw new Error('Xác minh tài khoản không thành công');
     }
     const userData = {
@@ -189,7 +189,7 @@ const verifyEmail = async (req, res) => {
         ...generateToken,
     }).save();
     if (!newToken) {
-        res.status(500);
+        res.status(502);
         throw new Error('Authentication token generation failed');
     }
     res.status(200).json({
@@ -407,8 +407,8 @@ const changePassword = async (req, res) => {
             ...generateToken,
         }).save();
         if (!newToken) {
-            res.status(500);
-            throw new Error('Authentication token generation failed');
+            res.status(502);
+            throw new Error('Xảy ra lỗi khi tạo chứng chỉ đăng nhập');
         }
         res.status(200).json({
             message: 'Thay đổi mật khẩu thành công',

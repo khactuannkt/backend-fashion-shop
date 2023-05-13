@@ -231,7 +231,7 @@ const createProduct = async (req, res, next) => {
     let { name, description, category, brand, weight, length, height, width } = req.body;
     const variants = JSON.parse(req.body.variants) || [];
     const keywords = JSON.parse(req.body.keywords) || [];
-    const imageFile = req.body.imageFile ? JSON.parse(req.body.imageFile) : '';
+    const imageFile = req.body.imageFile ? JSON.parse(req.body.imageFile) : [];
 
     const findProduct = Product.findOne({ name });
     const findCategory = Category.findOne({ _id: category });
@@ -302,7 +302,6 @@ const createProduct = async (req, res, next) => {
                         minPrice = variant.price;
                     }
                     const newVariant = new Variant({ product: product._id, ...variant });
-                    console.log(newVariant);
                     await newVariant.save({ session });
                     variantIds.push(newVariant._id);
                 });
@@ -326,7 +325,6 @@ const createProduct = async (req, res, next) => {
                     res.status(400);
                     throw new Error('Thiếu hình ảnh. Vui lòng đăng tải ít nhất 1 hình ảnh');
                 }
-
                 product.images = images;
                 product.variants = variantIds;
                 product.price = minPrice;
@@ -366,6 +364,7 @@ const updateProduct = async (req, res, next) => {
     const variants = JSON.parse(req.body.variants) || [];
     const keywords = JSON.parse(req.body.keywords) || [];
     const images = JSON.parse(req.body.images) || [];
+    const imageFile = req.body.imageFile ? JSON.parse(req.body.imageFile) : [];
     //Check variants value
     const variantsValue = {};
     let count = 0;
@@ -433,22 +432,16 @@ const updateProduct = async (req, res, next) => {
             currentProduct.brand = brand || currentProduct.brand;
             currentProduct.keywords = keywords || currentProduct.keywords;
 
-            //update image
+            // upload image to cloundinary
             const updateImages = images || [];
-            if (req.files && req.files.length > 0) {
-                const uploadListImage = req.files.map(async (image) => {
-                    const uploadImage = await cloudinaryUpload(image.path, 'FashionShop/products');
+            if (imageFile && imageFile.length > 0) {
+                const uploadListImage = imageFile.map(async (image) => {
+                    console.log(typeof image);
+                    const uploadImage = await cloudinaryUpload(image, 'FashionShop/products');
                     if (!uploadImage) {
-                        await session.abortTransaction();
-                        res.status(500);
-                        throw new Error('Error while uploading image');
+                        res.status(502);
+                        throw new Error('Xảy ra lỗi trong quá trình đăng tải hình ảnh sản phẩm');
                     }
-                    fs.unlink(image.path, async (error) => {
-                        if (error) {
-                            await session.abortTransaction();
-                            throw new Error(error);
-                        }
-                    });
                     return uploadImage.secure_url;
                 });
                 const imageList = await Promise.all(uploadListImage);

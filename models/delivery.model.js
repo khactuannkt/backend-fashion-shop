@@ -48,6 +48,7 @@ const deliverySchema = mongoose.Schema(
         },
         service_id: {
             type: Number,
+            default: 53320,
         },
         note: {
             type: String,

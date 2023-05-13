@@ -111,7 +111,6 @@ testRouter.post(
     '/upload',
     multerUpload.single('image'),
     asyncHandler(async (req, res) => {
-        console.log(req.body.name);
         if (!req.file) {
             throw new Error('No file provided');
         }

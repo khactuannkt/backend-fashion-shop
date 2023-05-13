@@ -163,15 +163,10 @@ const calculateFee = async (shippingAddress, size, price) => {
         })
         .catch((error) => {
             deliveryFee.error = 1;
-            if (error?.response?.status && error.response.status == '400') {
-                deliveryFee.status = 400;
-                deliveryFee.message = 'Sai thông tin giao hàng. Vui lòng thử lại.';
-            } else {
-                deliveryFee.status = 500;
-                deliveryFee.message =
-                    error.response?.message || error.message || 'Xảy ra lỗi trong quá trình tính phí vận chuyển';
-            }
+            deliveryFee.status = error.response.data.code || 500;
+            deliveryFee.message = error.response.data.message || error.message || '';
         });
+
     return deliveryFee;
 };
 
@@ -184,7 +179,7 @@ const estimatedDeliveryTime = async (shippingAddress) => {
     };
     const config = {
         data: JSON.stringify({
-            service_id: 53350,
+            service_id: 53320,
             to_district_id: shippingAddress.to_district_id,
             to_ward_code: String(shippingAddress.to_ward_code),
         }),
@@ -195,22 +190,16 @@ const estimatedDeliveryTime = async (shippingAddress) => {
         })
         .catch((error) => {
             result.error = 1;
-            if (error?.response?.status && error.response.status == '400') {
-                result.status = 400;
-                result.message = 'Sai thông tin giao hàng. Vui lòng thử lại.';
-            } else {
-                result.status = 500;
-                result.message =
-                    error.response?.message ||
-                    error.message ||
-                    'Xảy ra lỗi trong quá trình tính thời gian giao hàng dự kiến';
-            }
+            result.status = error.response.data.code || 500;
+            result.message = error.response.data.message || error.message || '';
         });
+
     return result;
 };
 const getAddressName = async (shippingAddress) => {
     const result = {
         error: 0,
+        status: 200,
         message: '',
         address: {
             ...shippingAddress,
@@ -231,10 +220,10 @@ const getAddressName = async (shippingAddress) => {
                 });
             })
             .catch((error) => {
-                throw new Error(
-                    error.response?.message || error.message || 'Lấy danh sách tỉnh thành phố không thành công',
-                );
+                result.status = error.response.data.code || 500;
+                throw new Error(error.response.data.message || error.message || '');
             });
+
         //Get district
         await GHN_Request.get('/master-data/district', {
             data: JSON.stringify({
@@ -250,7 +239,8 @@ const getAddressName = async (shippingAddress) => {
                 });
             })
             .catch((error) => {
-                throw new Error(error.response?.message || error.message);
+                result.status = error.response.data.code || 500;
+                throw new Error(error.response.data.message || error.message || '');
             });
         //Get ward
         await GHN_Request.get('/master-data/ward', {
@@ -267,7 +257,8 @@ const getAddressName = async (shippingAddress) => {
                 });
             })
             .catch((error) => {
-                throw new Error(error.response?.message || error.message);
+                result.status = error.response.data.code || 500;
+                throw new Error(error.response.data.message || error.message || '');
             });
         if (!result.address.provinceName) {
             throw new Error('Tỉnh/Thành phố không hợp lệ');
@@ -324,7 +315,7 @@ const createOrder = async (req, res, next) => {
         throw new Error(leadTimeResult.message);
     }
     if (addressResult.error) {
-        res.status(400);
+        res.status(addressResult.status);
         throw new Error(addressResult.message);
     }
 
@@ -872,6 +863,7 @@ const cancelOrder = async (req, res, next) => {
         return res.status(400).json({ message: message });
     }
     const orderId = req.params.id || '';
+    console.log(orderId);
     const description = req.body.description?.toString()?.trim() || '';
     const order = await Order.findOne({ _id: orderId });
     if (!order) {
@@ -924,17 +916,24 @@ const cancelOrder = async (req, res, next) => {
     };
     try {
         await session.withTransaction(async () => {
+            console.log(order.orderItems);
+            console.log(typeof order.orderItems);
+
             order.orderItems.map(async (orderItem) => {
                 const updateProduct = Product.findOneAndUpdate(
                     { _id: orderItem.product },
                     { $inc: { totalSales: -orderItem.quantity, quantity: +orderItem.quantity } },
                 ).session(session);
                 const updateVariant = Variant.findOneAndUpdate(
-                    { product: product._id, attributes: orderItem.attributes },
+                    { product: orderItem.product._id, attributes: orderItem.attributes },
                     { $inc: { quantity: +orderItem.quantity } },
                     { new: true },
                 ).session(session);
-                await Promise.all([updateProduct, updateVariant]);
+                await Promise.all([updateProduct, updateVariant]).catch(async (error) => {
+                    await session.abortTransaction();
+                    res.status(502);
+                    throw new Error('Gặp lỗi khi hủy đơn hàng');
+                });
             });
             order.status = 'cancelled';
             order.statusHistory.push({ status: 'cancelled', description: description });
