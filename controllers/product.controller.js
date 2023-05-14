@@ -9,15 +9,14 @@ import { productQueryParams, validateConstants, priceRangeFilter, ratingFilter }
 import { cloudinaryUpload, cloudinaryRemove } from '../utils/cloudinary.js';
 import { validationResult } from 'express-validator';
 import slug from 'slug';
+import { extractKeywords } from '../utils/extractKeywords.js';
 
 const getProducts = async (req, res) => {
-    const limit = parseInt(req.query.limit) || 12;
-    const rating = parseInt(req.query.rating) || 0;
-    const maxPrice = parseInt(req.query.maxPrice) || 0;
-    const minPrice = parseInt(req.query.minPrice) || 0;
-    const page = parseInt(req.query.page) || 0;
-    const status = req.query.status || null;
-
+    const limit = parseInt(req.query.limit) > 0 ? parseInt(req.query.limit) : 12;
+    const rating = parseInt(req.query.rating) >= 0 && parseInt(req.query.rating) <= 5 ? parseInt(req.query.rating) : 0;
+    const maxPrice = parseInt(req.query.maxPrice) >= 0 ? parseInt(req.query.maxPrice) : null;
+    const minPrice = parseInt(req.query.minPrice) >= 0 ? parseInt(req.query.minPrice) : null;
+    let page = parseInt(req.query.page) >= 0 ? parseInt(req.query.page) : 0;
     const sortBy = validateConstants(productQueryParams, 'sort', req.query.sortBy || 'default');
 
     const keyword = req.query.keyword
@@ -30,10 +29,16 @@ const getProducts = async (req, res) => {
                       },
                   },
                   {
+                      slug: {
+                          $regex: req.query.keyword,
+                          $options: 'i',
+                      },
+                  },
+
+                  {
                       keywords: {
                           $elemMatch: {
-                              $regex: req.query.keyword,
-                              $options: 'i',
+                              $eq: req.query.keyword,
                           },
                       },
                   },
@@ -84,11 +89,11 @@ const getProducts = async (req, res) => {
 };
 
 const getProductsByAdmin = async (req, res) => {
-    const limit = parseInt(req.query.limit) || 12;
-    const rating = parseInt(req.query.rating) || 0;
-    const maxPrice = parseInt(req.query.maxPrice) || 0;
-    const minPrice = parseInt(req.query.minPrice) || 0;
-    const page = parseInt(req.query.page) || 0;
+    const limit = parseInt(req.query.limit) > 0 ? parseInt(req.query.limit) : 12;
+    const rating = parseInt(req.query.rating) >= 0 && parseInt(req.query.rating) <= 5 ? parseInt(req.query.rating) : 0;
+    const maxPrice = parseInt(req.query.maxPrice) >= 0 ? parseInt(req.query.maxPrice) : null;
+    const minPrice = parseInt(req.query.minPrice) >= 0 ? parseInt(req.query.minPrice) : null;
+    let page = parseInt(req.query.page) >= 0 ? parseInt(req.query.page) : 0;
     const status = req.query.status || null;
     let sortBy = req.query.sortBy || null;
     sortBy = validateConstants(productQueryParams, 'sort', sortBy ? sortBy : 'newest');
@@ -104,10 +109,15 @@ const getProductsByAdmin = async (req, res) => {
                       },
                   },
                   {
+                      slug: {
+                          $regex: req.query.keyword,
+                          $options: 'i',
+                      },
+                  },
+                  {
                       keywords: {
                           $elemMatch: {
-                              $regex: req.query.keyword,
-                              $options: 'i',
+                              $eq: req.query.keyword,
                           },
                       },
                   },
@@ -175,11 +185,76 @@ const getProductSearchResults = async (req, res) => {
     res.json(products);
 };
 const getProductRecommend = async (req, res) => {
-    const limit = Number(req.query.limit) || 12; //EDIT HERE
+    const limit = parseInt(req.query.limit) || 12;
+    const rating = parseInt(req.query.rating) || 0;
+    const maxPrice = parseInt(req.query.maxPrice) || 0;
+    const minPrice = parseInt(req.query.minPrice) || 0;
+    const page = parseInt(req.query.page) || 0;
+    const status = req.query.status || null;
 
-    const products = await Product.find(productFilter).limit(limit);
-    res.status(200);
-    res.json({ message: 'Success', data: { products } });
+    const sortBy = validateConstants(productQueryParams, 'sort', req.query.sortBy || 'default');
+
+    const keyword = req.query.keyword
+        ? {
+              $or: [
+                  {
+                      name: {
+                          $regex: req.query.keyword,
+                          $options: 'i',
+                      },
+                  },
+
+                  {
+                      keywords: {
+                          $elemMatch: {
+                              $eq: req.query.keyword,
+                          },
+                      },
+                  },
+              ],
+          }
+        : {};
+
+    //Check if category existed
+    let categoryName = req.query.category || null;
+    let categoryIds = [];
+    if (!categoryName) {
+        categoryIds = await Category.find({ disabled: false }).select({ _id: 1 });
+    } else {
+        const findCategory = await Category.findOne({ _id: categoryName, disabled: false }).select({
+            _id: 1,
+            children: 1,
+        });
+        if (findCategory) {
+            categoryIds.push(findCategory._id, ...findCategory.children);
+        }
+    }
+    const categoryFilter = categoryIds.length > 0 ? { category: categoryIds } : {};
+
+    const productFilter = {
+        ...keyword,
+        ...categoryFilter,
+        ...priceRangeFilter(minPrice, maxPrice),
+        ...ratingFilter(rating),
+    };
+    const count = await Product.countDocuments(productFilter);
+    //Check if product match keyword
+    if (count == 0) {
+        res.status(204);
+        throw new Error('Không có sản phẩm nào!');
+    }
+    //else
+    const products = await Product.find(productFilter)
+        .limit(limit)
+        .skip(limit * page)
+        .sort(sortBy)
+        .populate('category')
+        .populate('variants');
+
+    res.status(200).json({
+        message: 'Success',
+        data: { products, page, pages: Math.ceil(count / limit), total: count },
+    });
 };
 
 const getAllProductsByAdmin = async (req, res) => {
@@ -268,6 +343,12 @@ const createProduct = async (req, res, next) => {
     if (existSlug) {
         generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
     }
+
+    //Generate list keywords
+    const generateKeywords = keywords || [];
+    generateKeywords.push(existedCategory.name, existedCategory.slug, generatedSlug, brand);
+    const extractKeywordsName = extractKeywords(name);
+    generateKeywords.push(...extractKeywordsName);
 
     const session = await mongoose.startSession();
     const transactionOptions = {
@@ -388,7 +469,7 @@ const updateProduct = async (req, res, next) => {
         throw new Error('Giá trị của các biến thể không được trùng nhau');
     }
 
-    const currentProduct = await Product.findById(req.params.id);
+    const currentProduct = await Product.findOne({ _id: req.params.id });
     if (!currentProduct) {
         res.status(404);
         throw new Error('Sản phẩm không tồn tại');
@@ -403,6 +484,8 @@ const updateProduct = async (req, res, next) => {
     try {
         await session.withTransaction(async () => {
             //update product
+            const generateKeywords = keywords || [];
+
             if (currentProduct.name != name) {
                 const existedProduct = await Product.findOne({ name });
                 if (existedProduct) {
@@ -418,6 +501,11 @@ const updateProduct = async (req, res, next) => {
                     generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
                 }
                 currentProduct.slug = generatedSlug;
+                const extractKeywordsName = extractKeywords(name);
+                generateKeywords.push(...extractKeywordsName, generatedSlug);
+            } else {
+                const extractKeywordsName = extractKeywords(currentProduct.name);
+                generateKeywords.push(...extractKeywordsName, currentProduct.slug);
             }
             if (currentProduct.category != category) {
                 const existedCategory = await Category.findById(category);
@@ -427,32 +515,15 @@ const updateProduct = async (req, res, next) => {
                     throw new Error('Thể loại không tồn tại');
                 }
                 currentProduct.category = existedCategory._id;
+                generateKeywords.push(existedCategory.name, existedCategory.slug);
+            } else {
+                generateKeywords.push(currentProduct.category.name, currentProduct.category.slug);
             }
+            generateKeywords.push(brand);
             currentProduct.description = description || currentProduct.description;
             currentProduct.brand = brand || currentProduct.brand;
-            currentProduct.keywords = keywords || currentProduct.keywords;
+            currentProduct.keywords = generateKeywords || currentProduct.keywords;
 
-            // upload image to cloundinary
-            const updateImages = images || [];
-            if (imageFile && imageFile.length > 0) {
-                const uploadListImage = imageFile.map(async (image) => {
-                    console.log(typeof image);
-                    const uploadImage = await cloudinaryUpload(image, 'FashionShop/products');
-                    if (!uploadImage) {
-                        res.status(502);
-                        throw new Error('Xảy ra lỗi trong quá trình đăng tải hình ảnh sản phẩm');
-                    }
-                    return uploadImage.secure_url;
-                });
-                const imageList = await Promise.all(uploadListImage);
-                updateImages.push(...imageList);
-            }
-            if (updateImages.length === 0) {
-                await session.abortTransaction();
-                res.status(400);
-                throw new Error('Thiếu hình ảnh. Vui lòng đăng tải ít nhất 1 hình ảnh của sản phẩm');
-            }
-            currentProduct.images = updateImages;
             //update variant
             const oldVariantsId = currentProduct.variants;
 
@@ -530,7 +601,26 @@ const updateProduct = async (req, res, next) => {
             currentProduct.length = length;
             currentProduct.height = height;
             currentProduct.width = width;
-
+            // upload image to cloundinary
+            const updateImages = images || [];
+            if (imageFile && Array(imageFile).length > 0) {
+                const uploadListImage = Array(imageFile).map(async (image) => {
+                    const uploadImage = await cloudinaryUpload(image, 'FashionShop/products');
+                    if (!uploadImage) {
+                        res.status(502);
+                        throw new Error('Xảy ra lỗi trong quá trình đăng tải hình ảnh sản phẩm');
+                    }
+                    return uploadImage.secure_url;
+                });
+                const imageList = await Promise.all(uploadListImage);
+                updateImages.push(...imageList);
+            }
+            if (updateImages.length === 0) {
+                await session.abortTransaction();
+                res.status(400);
+                throw new Error('Thiếu hình ảnh. Vui lòng đăng tải ít nhất 1 hình ảnh của sản phẩm');
+            }
+            currentProduct.images = updateImages;
             const updatedProduct = await (await currentProduct.save({ session })).populate(['variants', 'category']);
 
             res.status(200).json({ message: 'Cập nhật Sản phẩm thành công', data: { updatedProduct } });

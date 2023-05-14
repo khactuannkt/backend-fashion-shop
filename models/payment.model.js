@@ -15,6 +15,13 @@ const paymentSchema = mongoose.Schema(
         requestId: {
             type: String,
         },
+        transId: {
+            type: Number,
+        },
+        amount: {
+            type: Number,
+        },
+        refundTrans: [{ type: String }],
         paymentMethod: {
             type: String,
             required: true,

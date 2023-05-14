@@ -7,7 +7,7 @@ import Cart from '../models/cart.model.js';
 import DiscountCode from '../models/discountCode.model.js';
 import { orderQueryParams, validateConstants } from '../utils/searchConstants.js';
 import { validationResult } from 'express-validator';
-import createRequestBody from '../utils/payment-with-momo.js';
+import { createCheckStatusBody, createPaymentBody, createRefundTransBody } from '../utils/payment-with-momo.js';
 import axios from 'axios';
 import Payment from '../models/payment.model.js';
 import { v4 as uuidv4 } from 'uuid';
@@ -507,7 +507,7 @@ const createOrder = async (req, res, next) => {
                 const redirectUrl = `${process.env.CLIENT_PAGE_URL}/order/${orderInfor._id}`;
                 const ipnUrl = `${process.env.API_URL}/api/v1/orders/${orderInfor._id}/payment-notification`;
                 const requestId = uuidv4();
-                const requestBody = createRequestBody(
+                const requestBody = createPaymentBody(
                     orderInfor._id,
                     requestId,
                     'Thanh toán đơn hàng tại Fashion Shop',
@@ -827,6 +827,76 @@ const userPaymentOrder = async (req, res) => {
     }
 };
 
+const getOrderPaymentStatus = async (req, res) => {
+    const orderId = req.params.id;
+    const order = await Order.findOne({ _id: orderId, disabled: false }).populate('paymentInformation');
+    if (!order) {
+        res.status(404);
+        throw new Error('Đơn hàng không tồn tại!');
+    }
+    //Create payment information with momo
+    const requestBody = createCheckStatusBody(order._id, order.paymentInformation.requestId);
+    console.log(requestBody);
+    const config = {
+        headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(requestBody),
+        },
+    };
+    const result = await momo_Request
+        .post('/query', requestBody, config)
+        .then((response) => {
+            console.log(response);
+            if (response.data.resultCode == 0) {
+                order.paymentInformation.refundTrans = response.data.refundTrans || [];
+                order.paymentInformation.transId = response.data.transId || null;
+                order.paymentInformation.save();
+            }
+            res.status(200).json(response.data);
+        })
+        .catch(async (error) => {
+            console.log(error);
+            res.status(400);
+            throw new Error(error.response?.message || error.message);
+        });
+};
+
+const refundTrans = async (req, res) => {
+    const orderId = req.params.id;
+    const order = await Order.findOne({ _id: orderId, disabled: false }).populate('paymentInformation');
+    if (!order) {
+        res.status(404);
+        throw new Error('Đơn hàng không tồn tại!');
+    }
+    //Create payment information with momo
+    // const requestBody = createRefundTransBody(orderId, order.paymentInformation.requestId);
+    const requestBody = createRefundTransBody(
+        order._id,
+        '25302',
+        'tests',
+        order.paymentInformation.requestId,
+        '2976716175',
+    );
+    console.log(requestBody);
+    const config = {
+        headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(requestBody),
+        },
+    };
+    const result = await momo_Request
+        .post('/refund', requestBody, config)
+        .then((response) => {
+            console.log(response);
+            res.status(200).json(response.data);
+        })
+        .catch(async (error) => {
+            console.log(error);
+            res.status(400);
+            throw new Error(error.response?.message || error.message);
+        });
+};
+
 const adminPaymentOrder = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
@@ -966,6 +1036,8 @@ const orderController = {
     userPaymentOrder,
     adminPaymentOrder,
     cancelOrder,
+    getOrderPaymentStatus,
+    refundTrans,
 };
 
 export default orderController;

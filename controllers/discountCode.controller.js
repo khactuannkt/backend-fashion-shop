@@ -10,7 +10,15 @@ const TYPE_DISCOUNT_MONEY = 1;
 const TYPE_DISCOUNT_PERCENT = 2;
 
 const getDiscountCode = async (req, res) => {
-    const discountCode = await DiscountCode.find({ disabled: false }).sort({ _id: -1 });
+    const keyword = req.query.keyword
+        ? {
+              code: {
+                  $regex: req.query.keyword,
+                  $options: 'i',
+              },
+          }
+        : {};
+    const discountCode = await DiscountCode.find({ ...keyword, disabled: false }).sort({ _id: -1 });
     return res.status(200).json({ success: true, message: '', data: { discountCode } });
 };
 
@@ -43,7 +51,19 @@ const createDiscountCode = async (req, res) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-    const { code, discountType, discount, startDate, endDate, isUsageLimit, usageLimit, applicableProducts } = req.body;
+    const {
+        code,
+        discountType,
+        discount,
+        maximumDiscount,
+        startDate,
+        endDate,
+        isUsageLimit,
+        usageLimit,
+        userUseMaximum,
+        applyFor,
+        applicableProducts,
+    } = req.body;
 
     const discountCodeExists = await DiscountCode.findOne({ code: code });
     if (discountCodeExists) {
@@ -55,12 +75,18 @@ const createDiscountCode = async (req, res) => {
         code,
         discountType,
         discount,
+        maximumDiscount: maximumDiscount || 0,
         startDate: new Date(startDate),
         endDate: new Date(endDate),
         isUsageLimit,
         usageLimit,
+        userUseMaximum,
+        applyFor,
         applicableProducts,
     });
+    if (discountType == TYPE_DISCOUNT_MONEY) {
+        discountCode.maximumDiscount = discount;
+    }
     const newDiscountCode = await discountCode.save();
     return res.status(201).json({ message: 'Mã giảm giá đã được thêm', data: { newDiscountCode } });
 };
@@ -72,7 +98,19 @@ const updateDiscountCode = async (req, res) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-    const { code, discountType, discount, startDate, endDate, isUsageLimit, usageLimit, applicableProducts } = req.body;
+    const {
+        code,
+        discountType,
+        discount,
+        maximumDiscount,
+        startDate,
+        endDate,
+        isUsageLimit,
+        usageLimit,
+        userUseMaximum,
+        applyFor,
+        applicableProducts,
+    } = req.body;
     // Check id
     const discountCodeId = req.params.id || null;
     if (!ObjectId.isValid(discountCodeId)) {
@@ -93,10 +131,16 @@ const updateDiscountCode = async (req, res) => {
     currentDiscountCode.discountType = discountType || currentDiscountCode.discountType;
 
     currentDiscountCode.discount = discount || currentDiscountCode.discount;
+    currentDiscountCode.maximumDiscount = maximumDiscount || currentDiscountCode.maximumDiscount;
+    if (discountType == TYPE_DISCOUNT_MONEY) {
+        currentDiscountCode.maximumDiscount = discount;
+    }
     currentDiscountCode.startDate = startDate || currentDiscountCode.startDate;
     currentDiscountCode.endDate = endDate || currentDiscountCode.endDate;
     currentDiscountCode.isUsageLimit = isUsageLimit || currentDiscountCode.isUsageLimit;
     currentDiscountCode.usageLimit = usageLimit || currentDiscountCode.usageLimit;
+    currentDiscountCode.userUseMaximum = userUseMaximum || currentDiscountCode.userUseMaximum;
+    currentDiscountCode.applyFor = applyFor || currentDiscountCode.applyFor;
     currentDiscountCode.applicableProducts = applicableProducts || currentDiscountCode.applicableProducts;
 
     const updateDiscountCode = await currentDiscountCode.save();

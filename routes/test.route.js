@@ -9,8 +9,8 @@ import { cloudinaryUpload, cloudinaryRemove } from '../utils/cloudinary.js';
 import Cart from '../models/cart.model.js';
 import Product from '../models/product.model.js';
 import Variant from '../models/variant.model.js';
-
-import createRequestBody from '../utils/payment-with-momo.js';
+import natural from 'natural';
+import { createPaymentBody } from '../utils/payment-with-momo.js';
 import axios from 'axios';
 /* dotenv.config();
 
@@ -28,9 +28,22 @@ const multerUpload = multer({}); */
 const testRouter = express.Router();
 
 testRouter.post(
+    '/natural',
+    asyncHandler(async (req, res) => {
+        const text = req.body.text || '';
+        const extractKeywords = (text) => {
+            const tokenizer = new natural.AggressiveTokenizerVi();
+            return tokenizer.tokenize(text);
+        };
+        const keywords = extractKeywords(text);
+        res.json({ text, keywords });
+    }),
+);
+
+testRouter.post(
     '/payment',
     asyncHandler(async (req, res, next) => {
-        const requestBody = createRequestBody('order-id', '100000', 'https://localhost:3000', 'https://localhost:3000');
+        const requestBody = createPaymentBody('order-id', '100000', 'https://localhost:3000', 'https://localhost:3000');
         console.log(requestBody);
         const config = {
             headers: {

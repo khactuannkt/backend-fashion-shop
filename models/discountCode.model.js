@@ -43,6 +43,10 @@ const discountCodeSchema = new mongoose.Schema(
             type: Number,
             default: 0,
         },
+        userUseMaximum: {
+            type: Number,
+            default: 1,
+        },
         used: {
             type: Number,
             required: true,
@@ -54,6 +58,7 @@ const discountCodeSchema = new mongoose.Schema(
             enum: [1, 2],
             default: 1,
         },
+
         usedBy: [
             {
                 type: mongoose.Schema.Types.ObjectId,
