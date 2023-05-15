@@ -18,6 +18,7 @@ const getProducts = async (req, res) => {
     const minPrice = parseInt(req.query.minPrice) >= 0 ? parseInt(req.query.minPrice) : null;
     let page = parseInt(req.query.page) >= 0 ? parseInt(req.query.page) : 0;
     const sortBy = validateConstants(productQueryParams, 'sort', req.query.sortBy || 'default');
+    let statusFilter = validateConstants(productQueryParams, 'status', 'default');
 
     const keyword = req.query.keyword
         ? {
@@ -65,14 +66,17 @@ const getProducts = async (req, res) => {
     const productFilter = {
         ...keyword,
         ...categoryFilter,
+        ...statusFilter,
         ...priceRangeFilter(minPrice, maxPrice),
         ...ratingFilter(rating),
     };
     const count = await Product.countDocuments(productFilter);
     //Check if product match keyword
     if (count == 0) {
-        res.status(204);
-        throw new Error('Không có sản phẩm nào!');
+        res.status(200).json({
+            message: 'Success',
+            data: { products: [], page: 0, pages: 0, total: 0 },
+        });
     }
     //else
     const products = await Product.find(productFilter)
@@ -98,7 +102,6 @@ const getProductsByAdmin = async (req, res) => {
     let sortBy = req.query.sortBy || null;
     sortBy = validateConstants(productQueryParams, 'sort', sortBy ? sortBy : 'newest');
     let statusFilter = validateConstants(productQueryParams, 'status', status);
-
     const keyword = req.query.keyword
         ? {
               $or: [
@@ -151,8 +154,10 @@ const getProductsByAdmin = async (req, res) => {
     const count = await Product.countDocuments(productFilter);
     //Check if product match keyword
     if (count == 0) {
-        res.status(204);
-        throw new Error('Không có sản phẩm nào!');
+        res.status(200).json({
+            message: 'Success',
+            data: { products: [], page: 0, pages: 0, total: 0 },
+        });
     }
     //else
     const products = await Product.find(productFilter)
@@ -378,6 +383,9 @@ const createProduct = async (req, res, next) => {
                 const variantIds = [];
                 const createVariant = variants.map(async (variant) => {
                     totalQuantity += Number(variant.quantity);
+                    if (!variant.priceSale) {
+                        variant.priceSale = variant.price;
+                    }
                     if (minPriceSale > variant.priceSale) {
                         minPriceSale = variant.priceSale;
                         minPrice = variant.price;
@@ -603,8 +611,8 @@ const updateProduct = async (req, res, next) => {
             currentProduct.width = width;
             // upload image to cloundinary
             const updateImages = images || [];
-            if (imageFile && Array(imageFile).length > 0) {
-                const uploadListImage = Array(imageFile).map(async (image) => {
+            if (imageFile && imageFile.length > 0) {
+                const uploadListImage = imageFile.map(async (image) => {
                     const uploadImage = await cloudinaryUpload(image, 'FashionShop/products');
                     if (!uploadImage) {
                         res.status(502);
@@ -720,12 +728,12 @@ const restoreProduct = async (req, res) => {
         return res.status(400).json({ message: message });
     }
     const productId = req.params.id || null;
-    const deletedProduct = await Product.findByIdAndUpdate(productId, { deleted: null });
+    const deletedProduct = await Product.findByIdAndUpdate(productId, { deleted: true });
     if (!deletedProduct) {
         res.status(404);
         throw new Error('Sản phẩm không tồn tại');
     }
-    const deletedVariant = await Variant.updateMany({ product: productId }, { $set: { deleted: null } });
+    const deletedVariant = await Variant.updateMany({ product: productId }, { $set: { deleted: false } });
     res.status(200).json({
         message: 'Khôi phục sản phẩm thành công',
     });
@@ -738,12 +746,12 @@ const deleteProduct = async (req, res) => {
         return res.status(400).json({ message: message });
     }
     const productId = req.params.id || null;
-    const deletedProduct = await Product.findByIdAndUpdate(productId, { deleted: new Date() });
+    const deletedProduct = await Product.findByIdAndUpdate(productId, { deleted: true });
     if (!deletedProduct) {
         res.status(404);
         throw new Error('Sản phẩm không tồn tại');
     }
-    const deletedVariant = await Variant.updateMany({ product: productId }, { $set: { deleted: new Date() } });
+    const deletedVariant = await Variant.updateMany({ product: productId }, { $set: { deleted: true } });
     res.status(200).json({
         message:
             'Xóa sản phẩm thành công. Bạn có thể khôi phục trong vòng 30 ngày trước khi sản phẩm này bị xóa hoàn toàn',

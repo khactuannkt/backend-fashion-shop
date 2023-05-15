@@ -8,10 +8,11 @@ const productQueryParams = {
         default: { totalSales: 'desc' },
     },
     status: {
-        disabled: { isDisabled: true },
-        not_disabled: { isDisabled: false },
+        deleted: { deleted: true },
+        disabled: { disabled: true, deleted: false },
+        not_disabled: { disabled: false, deleted: false },
         all: {},
-        default: { isDisabled: false },
+        default: { disabled: false, deleted: false },
     },
 };
 

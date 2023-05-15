@@ -28,7 +28,7 @@ userRouter.delete('/address/:id/remove-user-address', protect, asyncHandler(user
 userRouter.get('/address/get-user-address-list', protect, asyncHandler(userController.getUserAddress));
 userRouter.get('/discount-code/get-user-discount-code-list', protect, asyncHandler(userController.getUserDiscountCode));
 userRouter.post(
-    '/discount-code/add-user-discount-code-list',
+    '/discount-code/user-add-discount-code',
     validate.addUserDiscountCode,
     protect,
     auth('user'),

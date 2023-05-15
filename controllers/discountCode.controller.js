@@ -52,6 +52,7 @@ const createDiscountCode = async (req, res) => {
         return res.status(400).json({ message: message });
     }
     const {
+        name,
         code,
         discountType,
         discount,
@@ -64,7 +65,7 @@ const createDiscountCode = async (req, res) => {
         applyFor,
         applicableProducts,
     } = req.body;
-
+    console.log(code);
     const discountCodeExists = await DiscountCode.findOne({ code: code });
     if (discountCodeExists) {
         res.status(400);
@@ -72,6 +73,7 @@ const createDiscountCode = async (req, res) => {
     }
 
     const discountCode = new DiscountCode({
+        name,
         code,
         discountType,
         discount,
@@ -99,6 +101,7 @@ const updateDiscountCode = async (req, res) => {
         return res.status(400).json({ message: message });
     }
     const {
+        name,
         code,
         discountType,
         discount,
@@ -127,6 +130,7 @@ const updateDiscountCode = async (req, res) => {
         throw new Error('Mã giảm giá đã tồn tại');
     }
 
+    currentDiscountCode.name = name || currentDiscountCode.name;
     currentDiscountCode.code = code || currentDiscountCode.code;
     currentDiscountCode.discountType = discountType || currentDiscountCode.discountType;
 

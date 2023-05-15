@@ -51,14 +51,14 @@ const login = async (req, res) => {
             updatedAt: user.updatedAt,
         };
         const generateToken = generateAuthToken(user._id);
-        // const newToken = await new Token({
-        //     user: user._id,
-        //     ...generateToken,
-        // }).save();
-        // if (!newToken) {
-        //     res.status(500);
-        //     throw new Error('Authentication token generation failed');
-        // }
+        const newToken = await new Token({
+            user: user._id,
+            ...generateToken,
+        }).save();
+        if (!newToken) {
+            res.status(500);
+            throw new Error('Authentication token generation failed');
+        }
         res.status(200).json({
             data: {
                 user: userData,
@@ -71,23 +71,38 @@ const login = async (req, res) => {
     }
 };
 const refreshToken = async (req, res) => {
-    if (!req.body.refreshToken || req.body.refreshToken.toString().trim() == '') {
+    if (!req.body.refreshToken || req.body.refreshToken?.toString().trim() == '') {
         res.status(401);
         throw new Error('Not authorized, no token');
     }
     const refreshToken = req.body.refreshToken.toString();
+
     try {
         const decoded = jwt.verify(refreshToken, process.env.REFRESH_JWT_SECRET);
         const userId = decoded._id || null;
-        const user = await User.findOne({ _id: userId, isVerified: true }).select('-password');
-        if (!user) {
+        // const user = await User.findOne({ _id: userId, isVerified: true }).select('-password');
+        const verifyToken = await Token.findOne({ user: userId, refreshToken: refreshToken }).populate({
+            path: 'user',
+            select: '-password',
+        });
+
+        if (!verifyToken || !verifyToken.user) {
             res.status(401);
             throw new Error('Not authorized, token failed');
         }
-        const generateToken = generateAuthToken(user._id);
+        const generateToken = generateAuthToken(verifyToken.user._id);
+        const newToken = await new Token({
+            user: verifyToken.user._id,
+            ...generateToken,
+        }).save();
+        if (!newToken) {
+            res.status(500);
+            throw new Error('Authentication token generation failed');
+        }
         res.status(200).json({
             data: {
-                ...generateToken,
+                accessToken: generateToken.accessToken,
+                refreshToken: generateToken.refreshToken,
             },
         });
     } catch (error) {
@@ -401,7 +416,7 @@ const changePassword = async (req, res) => {
         user.password = newPassword;
         await user.save();
         await Token.deleteMany({ user: user._id });
-        const generateToken = generateAuthToken(verifiedUser._id);
+        const generateToken = generateAuthToken(user._id);
         const newToken = await new Token({
             user: user._id,
             ...generateToken,
@@ -437,11 +452,15 @@ const createUserAddress = async (req, res) => {
         return res.status(400).json({ message: message });
     }
 
-    const { name, phone, province, district, ward, specificAddress, isDefault } = req.body;
+    const { name, phone, province, district, ward, specificAddress } = req.body;
+    let { isDefault } = req.body || false;
     if (isDefault) {
         req.user.address.map((item) => {
             item.isDefault = false;
         });
+    }
+    if (req.user.address.length == 0) {
+        isDefault = true;
     }
     req.user.address.push({ name, phone, province, district, ward, specificAddress, isDefault });
     await req.user.save();

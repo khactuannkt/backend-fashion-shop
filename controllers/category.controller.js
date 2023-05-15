@@ -123,7 +123,7 @@ const createCategory = async (req, res, next) => {
                             name: item.name.trim(),
                             slug: generatedSlug,
                             parent: category._id,
-                            level: level + 1,
+                            level: Number(level) + 1,
                             description: item.description || '',
                         });
                         await newChildrenCategory.save({ session });

@@ -101,7 +101,7 @@ const checkOrderProductList = async (size, orderItems) => {
             const orderedVariant = await Variant.findOne({
                 _id: orderItem.variant,
                 disabled: false,
-                deleted: { $eq: null },
+                deleted: false,
             }).populate('product');
             if (!orderedVariant || !orderedVariant.product?._id) {
                 throw new Error(`Sản phẩm có ID "${orderItem.variant}" không tồn tại`);
@@ -338,7 +338,7 @@ const createOrder = async (req, res, next) => {
                         _id: orderItem.variant,
                         quantity: { $gte: orderItem.quantity },
                         disabled: false,
-                        deleted: { $eq: null },
+                        deleted: false,
                     },
                     { $inc: { quantity: -orderItem.quantity } },
                     { new: true },
@@ -349,7 +349,7 @@ const createOrder = async (req, res, next) => {
                     throw new Error(`Sản phẩm có ID "${orderItem.variant}" đã hết hàng`);
                 }
                 const orderedProduct = await Product.findOneAndUpdate(
-                    { _id: orderedVariant.product, disabled: false, deleted: { $eq: null } },
+                    { _id: orderedVariant.product, disabled: false, deleted: false },
                     { $inc: { totalSales: +orderItem.quantity, quantity: -orderItem.quantity } },
                 ).session(session);
                 // await Promise.all([orderedVariant, orderedProduct]);
@@ -669,8 +669,8 @@ const confirmDelivery = async (req, res) => {
             return response.data.data;
         })
         .catch((error) => {
-            res.status(error.code || 502);
-            throw new Error(error.message || error.response?.message || null);
+            res.status(error.response.data.code || 502);
+            throw new Error(error.response.data.message || error.message || null);
         });
     order.delivery.start_date = new Date();
     order.delivery.leadTime = deliveryInfo.expected_delivery_time || order.delivery.leadTime;
@@ -933,7 +933,6 @@ const cancelOrder = async (req, res, next) => {
         return res.status(400).json({ message: message });
     }
     const orderId = req.params.id || '';
-    console.log(orderId);
     const description = req.body.description?.toString()?.trim() || '';
     const order = await Order.findOne({ _id: orderId });
     if (!order) {

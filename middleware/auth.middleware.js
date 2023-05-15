@@ -1,6 +1,7 @@
 import jwt, { decode } from 'jsonwebtoken';
 import asyncHandler from 'express-async-handler';
 import User from '../models/user.model.js';
+import Token from '../models/token.model.js';
 
 const protect = asyncHandler(async (req, res, next) => {
     const authHeader = req.headers.authorization;
@@ -9,9 +10,20 @@ const protect = asyncHandler(async (req, res, next) => {
             const token = authHeader.split(' ')[1];
             const decoded = jwt.verify(token, process.env.ACCESS_JWT_SECRET);
             const userId = decoded._id || null;
-            req.user = await User.findOne({ _id: userId, isVerified: true }).select('-password');
+            // const user = await User.findOne({ _id: userId, isVerified: true }).select('-password');
+            const verifyToken = await Token.findOne({ user: userId, accessToken: token }).populate({
+                path: 'user',
+                select: '-password',
+            });
+
+            if (!verifyToken || !verifyToken.user) {
+                res.status(401);
+                throw new Error('Not authorized, token failed');
+            }
+            req.user = verifyToken.user;
             return next();
         } catch (error) {
+            console.log(error);
             res.status(401);
             throw new Error('Not authorized, token failed');
         }

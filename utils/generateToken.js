@@ -9,6 +9,11 @@ const generateAuthToken = (id) => {
     const refreshToken = generateToken({ _id: id }, process.env.REFRESH_JWT_SECRET, {
         expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN_MINUTE * 60 + 's',
     });
-    return { accessToken, refreshToken };
+    const currentDate = new Date();
+    return {
+        accessToken,
+        refreshToken,
+        expiresIn: new Date(currentDate.getTime() + process.env.REFRESH_TOKEN_EXPIRES_IN_MINUTE * 60 * 1000),
+    };
 };
 export default generateAuthToken;

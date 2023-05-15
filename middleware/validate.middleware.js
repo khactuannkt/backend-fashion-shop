@@ -165,9 +165,9 @@ const validate = {
             .not()
             .isEmpty()
             .withMessage('Mã giảm giá không được để trống`')
-            .matches(/^[A-Za-z0-9]{6,10}$/)
-            .withMessage('Mã giảm giá chỉ chứa chữ cái từ a-z, A-Z và chữ số từ 0 đến 9 và độ dài từ 6 đến 10 ký tự'),
-        check('name').trim().not().isEmpty().withMessage('Mã giảm giá không được để trống'),
+            .matches(/^[A-Za-z0-9]{6,20}$/)
+            .withMessage('Mã giảm giá chỉ chứa chữ cái từ a-z, A-Z và chữ số từ 0 đến 9 và độ dài từ 6 đến 20 ký tự'),
+        check('name').trim().not().isEmpty().withMessage('Tên chương trình mã giảm giá không được để trống'),
         check('discountType')
             .notEmpty()
             .withMessage('Loại giảm giá không được để trống')
@@ -253,44 +253,66 @@ const validate = {
         }),
     ],
     updateDiscountCode: [
-        check('code').trim().not().isEmpty().withMessage('Code is required'),
-        check('discountType').custom((discountType) => {
-            if (!discountType || discountType.trim() == '') {
-                throw new Error('Discount type is required');
-            }
-            if (discountType !== 'percent' && discountType !== 'money') {
-                throw new Error('Discount type must be "percent" or "money"');
-            }
-            return true;
-        }),
-        check('discount').custom((discount) => {
+        check('code')
+            .trim()
+            .not()
+            .isEmpty()
+            .withMessage('Mã giảm giá không được để trống`')
+            .matches(/^[A-Za-z0-9]{6,10}$/)
+            .withMessage('Mã giảm giá chỉ chứa chữ cái từ a-z, A-Z và chữ số từ 0 đến 9 và độ dài từ 6 đến 10 ký tự'),
+        check('name').trim().not().isEmpty().withMessage('Mã giảm giá không được để trống'),
+        check('discountType')
+            .notEmpty()
+            .withMessage('Loại giảm giá không được để trống')
+            .custom((discountType) => {
+                if (discountType != 1 && discountType != 2) {
+                    throw new Error('Loại mã giảm giá không hợp lệ');
+                }
+                return true;
+            }),
+        check('discount').custom((discount, { req }) => {
             if (!discount || String(discount).trim() === '') {
-                throw new Error('Discount is required');
+                throw new Error('Giá trị mã giảm giá không được để trống');
             }
-            const _discount = Number(discount);
-            if (!_discount || _discount < 0) {
-                throw new Error('Discount must be an integer and must be greater than or equal to 0');
+            if (req.body.discountType == 1) {
+                const _discount = Number(discount);
+                if (!_discount || _discount < 0) {
+                    throw new Error('Giá trị mã giảm giá phải lớn 0');
+                }
+            } else {
+                const _discount = Number(discount);
+                if (!_discount || _discount < 0 || _discount > 100) {
+                    throw new Error('Phần trăm mã giảm giá phải từ 1 đến 100');
+                }
             }
             return true;
         }),
         check('startDate')
-            .not()
-            .isEmpty()
-            .withMessage('Start date is required')
-            .isDate()
-            .withMessage('Start date is valid'),
+            .notEmpty()
+            .withMessage('Ngày bắt đầu không được để trống')
+            .custom((startDate) => {
+                startDate = new Date(startDate);
+                if (startDate == 'Invalid Date') {
+                    throw new Error('Ngày bắt bắt đầu hiệu lực không hợp lệ');
+                }
+                return true;
+            }),
 
         check('endDate')
             .not()
             .isEmpty()
-            .withMessage('End date is required')
-            .isDate()
-            .withMessage('End date is valid')
+            .withMessage('Ngày kết thúc không được để trống')
             .custom((endDate, { req }) => {
-                if (new Date(endDate) < new Date(req.body.startDate) || new Date(endDate) <= new Date()) {
-                    throw new Error(
-                        'The end date must be greater than or equal to the start date and must be greater than or equal to now',
-                    );
+                const startDate = new Date(req.body.startDate);
+                endDate = new Date(endDate);
+                if (startDate == 'Invalid Date') {
+                    throw new Error('Ngày bắt đầu hiệu lực không hợp lệ');
+                }
+                if (endDate == 'Invalid Date') {
+                    throw new Error('Ngày kết thúc hiệu lực không hợp lệ');
+                }
+                if (endDate < startDate || endDate <= new Date()) {
+                    throw new Error('Ngày kết thúc hiệu lực phải lớn hơn thời gian bắt đầu và thời gian hiện tại');
                 }
                 return true;
             }),
@@ -298,17 +320,17 @@ const validate = {
             .trim()
             .not()
             .isEmpty()
-            .withMessage('isUsageLimit is required')
+            .withMessage('Xác nhận giới hạn lượt sử dụng không được để trống')
             .isBoolean()
-            .withMessage('isUsageLimit must be a boolean'),
+            .withMessage('Xác nhận giới hạn lượt sử dụng phải là kiểu đúng/sai'),
         check('usageLimit').custom((usageLimit, { req }) => {
             if (new Boolean(req.body.isUsageLimit)) {
                 if (!usageLimit || String(usageLimit).trim() === '') {
-                    throw new Error('Usage limit is required');
+                    throw new Error('Số lượt sử dụng mã giảm giá không được để trống');
                 }
                 const _usageLimit = Number(usageLimit);
                 if (!_usageLimit || _usageLimit < 0) {
-                    throw new Error('Usage limit must be an integer and must be greater than or equal to 0');
+                    throw new Error('Lượt sử dụng mã giảm giá phải lớn hơn hoặc bằng 0');
                 }
             }
 
@@ -317,7 +339,7 @@ const validate = {
         check('applicableProducts').custom((applicableProducts) => {
             applicableProducts.map((product) => {
                 if (!ObjectId.isValid(product)) {
-                    throw new Error('Product ID: "' + product + '" is not valid');
+                    throw new Error('Mã sản phẩm: "' + product + '"Không hợp lệ');
                 }
             });
             return true;
@@ -362,9 +384,7 @@ const validate = {
             .not()
             .isEmpty()
             .withMessage('Số điện thoại không được để trống')
-            .isLength({ min: 10, max: 10 })
-            .withMessage('Số điện thoại không hợp lệ')
-            .isMobilePhone()
+            .matches(/((09|03|07|08|05)+([0-9]{8})\b)/g)
             .withMessage('Số điện thoại không hợp lệ'),
         check('password')
             .not()
@@ -396,9 +416,7 @@ const validate = {
             .not()
             .isEmpty()
             .withMessage('Số điện thoại không được để trống')
-            .isLength({ min: 10, max: 10 })
-            .withMessage('Số điện thoại không hợp lệ')
-            .isMobilePhone()
+            .matches(/((09|03|07|08|05)+([0-9]{8})\b)/g)
             .withMessage('Số điện thoại không hợp lệ'),
         check('gender')
             .trim()
@@ -426,7 +444,11 @@ const validate = {
     ],
     userAddress: [
         check('name').notEmpty().withMessage('Tên người nhận không được để trống'),
-        check('phone').notEmpty().withMessage('Số điện thoại người nhận không được để trống'),
+        check('phone')
+            .notEmpty()
+            .withMessage('Số điện thoại người nhận không được để trống')
+            .matches(/((09|03|07|08|05)+([0-9]{8})\b)/g)
+            .withMessage('Số điện thoại không hợp lệ'),
         check('province').notEmpty().withMessage('Tỉnh/Thành phố không được để trống'),
         check('province.id')
             .notEmpty()
@@ -564,11 +586,11 @@ const validate = {
             .withMessage('Giá của các biến thể sản phẩm không được để trống')
             .isInt({ min: 0 })
             .withMessage('Giá của các biến thể sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0'),
-        check('variants.*.priceSale')
-            .notEmpty()
-            .withMessage('Giá đã giảm của các biến thể sản phẩm không được để trống')
-            .isInt({ min: 0 })
-            .withMessage('Giá đã giảm của các biến thể sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0'),
+        // check('variants.*.priceSale')
+        //     .notEmpty()
+        //     .withMessage('Giá đã giảm của các biến thể sản phẩm không được để trống')
+        //     .isInt({ min: 0 })
+        //     .withMessage('Giá đã giảm của các biến thể sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0'),
         check('variants.*.quantity')
             .notEmpty()
             .withMessage('Số lượng các biến thể sản phẩm không được để trống')

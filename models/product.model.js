@@ -99,8 +99,9 @@ const productSchema = mongoose.Schema(
             default: 0,
         },
         deleted: {
-            type: Date,
-            default: null,
+            type: Boolean,
+            required: true,
+            default: false,
         },
         disabled: {
             type: Boolean,
