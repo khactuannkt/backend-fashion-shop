@@ -147,6 +147,7 @@ const calculateFee = async (shippingAddress, size, price) => {
     }
     const config = {
         data: JSON.stringify({
+            shop_id: Number(process.env.GHN_SHOP_ID),
             service_id: 53320,
             to_district_id: Number(shippingAddress.to_district_id),
             to_ward_code: shippingAddress.to_ward_code,
@@ -179,6 +180,7 @@ const estimatedDeliveryTime = async (shippingAddress) => {
     };
     const config = {
         data: JSON.stringify({
+            shop_id: Number(process.env.GHN_SHOP_ID),
             service_id: 53320,
             to_district_id: shippingAddress.to_district_id,
             to_ward_code: String(shippingAddress.to_ward_code),
@@ -642,6 +644,7 @@ const confirmDelivery = async (req, res) => {
     }
     const config = {
         data: JSON.stringify({
+            shop_id: Number(process.env.GHN_SHOP_ID),
             payment_type_id: 1,
             note: '',
             required_note: order.delivery.required_note,

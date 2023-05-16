@@ -5,7 +5,7 @@ export const GHN_Request = axios.create({
     headers: {
         'Content-Type': 'application/json',
         token: process.env.GHN_TOKEN_API,
-        shopId: process.env.GHN_SHOP_ID,
+        // shopId: process.env.GHN_SHOP_ID,
     },
 });
 

@@ -53,7 +53,7 @@ const getProducts = async (req, res) => {
     if (!categoryName) {
         categoryIds = await Category.find({ disabled: false }).select({ _id: 1 });
     } else {
-        const findCategory = await Category.findOne({ _id: categoryName, disabled: false }).select({
+        const findCategory = await Category.findOne({ slug: categoryName, disabled: false }).select({
             _id: 1,
             children: 1,
         });
@@ -134,7 +134,7 @@ const getProductsByAdmin = async (req, res) => {
     if (!categoryName) {
         categoryIds = await Category.find({ disabled: false }).select({ _id: 1 });
     } else {
-        const findCategory = await Category.findOne({ _id: categoryName, disabled: false }).select({
+        const findCategory = await Category.findOne({ slug: categoryName, disabled: false }).select({
             _id: 1,
             children: 1,
         });

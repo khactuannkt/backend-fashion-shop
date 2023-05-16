@@ -84,6 +84,7 @@ const calculateFee = async (req, res) => {
 
     const configFee = {
         data: JSON.stringify({
+            shop_id: Number(process.env.GHN_SHOP_ID),
             service_id,
             to_district_id,
             to_ward_code,
@@ -98,6 +99,7 @@ const calculateFee = async (req, res) => {
 
     const configLeadTime = {
         data: JSON.stringify({
+            shop_id: Number(process.env.GHN_SHOP_ID),
             service_id,
             to_district_id,
             to_ward_code,
@@ -135,6 +137,7 @@ const estimatedDeliveryTime = async (req, res) => {
 
     const config = {
         data: JSON.stringify({
+            shop_id: Number(process.env.GHN_SHOP_ID),
             from_district_id,
             from_ward_code,
             service_id,
