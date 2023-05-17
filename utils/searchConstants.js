@@ -119,7 +119,7 @@ const priceRangeFilter = (minPrice, maxPrice) => {
             minPrice = maxPrice;
             maxPrice = temp;
         }
-        return { price: { $gte: minPrice, $lte: maxPrice } };
+        return { priceSale: { $gte: minPrice, $lte: maxPrice } };
     }
     return {};
 };

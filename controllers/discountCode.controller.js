@@ -174,7 +174,7 @@ const discountCalculation = async (req, res) => {
         res.status(400);
         throw new Error('Mã giảm giá đã hết hạn');
     }
-    if (discountCodeExist.isUsageLimit && !(discountCodeExist.usageLimit <= discountCodeExist.used)) {
+    if (discountCodeExist.isUsageLimit && discountCodeExist.usageLimit <= discountCodeExist.used) {
         res.status(400);
         throw new Error('Mã giảm giá đã được sử dụng hết');
     }
@@ -190,7 +190,7 @@ const discountCalculation = async (req, res) => {
             const orderedVariant = await Variant.findOne({
                 _id: orderItem.variant,
                 disabled: false,
-                deleted: { $eq: null },
+                deleted: false,
             }).populate('product');
             if (!orderedVariant || !orderedVariant.product?._id) {
                 throw new Error(`Sản phẩm có ID "${orderItem.variant}" không tồn tại`);
@@ -229,7 +229,7 @@ const discountCalculation = async (req, res) => {
             discount = totalPriceProductDiscounted;
         }
     } else if (discountCodeExist.discountType == TYPE_DISCOUNT_PERCENT) {
-        discount = ((totalPriceProductDiscounted * discountCodeExist.discount) / 100).toFixed(3);
+        discount = (totalPriceProductDiscounted * discountCodeExist.discount) / 100;
         if (discount > discountCodeExist.maximumDiscount) {
             discount = discountCodeExist.maximumDiscount;
         }

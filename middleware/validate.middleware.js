@@ -139,7 +139,6 @@ const validate = {
             return true;
         }),
         check('name').trim().not().isEmpty().withMessage('Name is required'),
-        check('image').isURL().withMessage('URL image must be an url'),
         check('level').custom((level) => {
             if (!level || String(level).trim() === '') {
                 throw new Error('Level is required');
@@ -941,6 +940,18 @@ const validate = {
             }
             return true;
         }),
+    ],
+    services: [
+        // check('from_district_id')
+        //     .notEmpty()
+        //     .withMessage('Mã quận/huyện của người nhận hàng không được để trống')
+        //     .isInt()
+        //     .withMessage('Mã quận/huyện của người nhận phải là số nguyên'),
+        check('to_district')
+            .notEmpty()
+            .withMessage('Mã quận/huyện của người nhận hàng không được để trống')
+            .isInt()
+            .withMessage('Mã quận/huyện của người nhận phải là số nguyên'),
     ],
     estimatedDeliveryTime: [
         // check('from_district_id').custom((from_district_id) => {

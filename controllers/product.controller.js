@@ -547,7 +547,7 @@ const updateProduct = async (req, res, next) => {
                     if (minPriceSale == 0) {
                         minPriceSale = variant.priceSale;
                     }
-                    totalQuantity += variant.quantity;
+                    totalQuantity += Number(variant.quantity);
                     if (!variant.priceSale) {
                         variant.priceSale = variant.price;
                     }

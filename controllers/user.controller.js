@@ -386,7 +386,6 @@ const updateProfile = async (req, res) => {
                     avatar: updatedUser.avatar,
                     gender: updatedUser.gender,
                     birthday: updatedUser.birthday,
-                    // address: updatedUser.address,
                     createdAt: updatedUser.createdAt,
                     updatedAt: updatedUser.updatedAt,
                 },
@@ -416,18 +415,8 @@ const changePassword = async (req, res) => {
         user.password = newPassword;
         await user.save();
         await Token.deleteMany({ user: user._id });
-        const generateToken = generateAuthToken(user._id);
-        const newToken = await new Token({
-            user: user._id,
-            ...generateToken,
-        }).save();
-        if (!newToken) {
-            res.status(502);
-            throw new Error('Xảy ra lỗi khi tạo chứng chỉ đăng nhập');
-        }
         res.status(200).json({
             message: 'Thay đổi mật khẩu thành công',
-            data: { ...generateToken },
         });
     } else {
         res.status(400);

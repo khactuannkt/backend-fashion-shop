@@ -150,7 +150,7 @@ const calculateFee = async (shippingAddress, size, price) => {
             shop_id: Number(process.env.GHN_SHOP_ID),
             service_id: 53320,
             to_district_id: Number(shippingAddress.to_district_id),
-            to_ward_code: new String(shippingAddress.to_ward_code),
+            to_ward_code: String(shippingAddress.to_ward_code),
             height: size.height,
             length: size.length,
             weight: size.weight,
@@ -286,7 +286,7 @@ const createOrder = async (req, res, next) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-    const { shippingAddress, paymentMethod, orderItems, discountCode } = req.body;
+    const { shippingAddress, paymentMethod, orderItems, discountCode, note } = req.body;
 
     const size = {
         height: 0,
@@ -365,7 +365,7 @@ const createOrder = async (req, res, next) => {
                     product: orderedProduct._id,
                     name: orderedProduct.name,
                     attributes: orderedVariant.attributes,
-                    image: orderedVariant.image || null,
+                    image: orderedVariant.image || orderedProduct.images[0] || null,
                     price: orderedVariant.priceSale,
                     quantity: orderItem.quantity,
                 };
@@ -375,7 +375,11 @@ const createOrder = async (req, res, next) => {
                 dataOrderItem.push(newOrderItem);
             });
             await Promise.all(createOrderItems);
-
+            if (dataOrderItem.length < orderItems.length) {
+                await session.abortTransaction();
+                res.status(502);
+                throw new Error('Xảy ra lỗi khi tạo đơn hàng, vui lòng làm mới trang và đặt hàng lại');
+            }
             // create order information
             const orderInfor = new Order({
                 orderItems: dataOrderItem,
@@ -407,7 +411,7 @@ const createOrder = async (req, res, next) => {
                     res.status(400);
                     throw new Error('Mã giảm giá đã hết hạn');
                 }
-                if (discountCodeExist.isUsageLimit && !(discountCodeExist.usageLimit <= discountCodeExist.used)) {
+                if (discountCodeExist.isUsageLimit && discountCodeExist.usageLimit <= discountCodeExist.used) {
                     await session.abortTransaction();
                     res.status(400);
                     throw new Error('Mã giảm giá đã được sử dụng hết');
@@ -478,7 +482,7 @@ const createOrder = async (req, res, next) => {
                 to_district_id: address.to_district_id,
                 to_ward_code: address.to_ward_code,
                 to_address: address.to_address,
-                note: address.note,
+                note: note || '',
                 service_id: 53320,
                 items: orderInfor.orderItems,
                 deliveryFee: deliveryFee.fee,
@@ -506,7 +510,7 @@ const createOrder = async (req, res, next) => {
 
             if (newPaymentInformation.paymentMethod == PAYMENT_WITH_MOMO) {
                 //Create payment information with momo
-                const redirectUrl = `${process.env.CLIENT_PAGE_URL}/order/${orderInfor._id}`;
+                const redirectUrl = `${process.env.CLIENT_PAGE_URL}/order/${orderInfor._id}/waiting-payment`;
                 const ipnUrl = `${process.env.API_URL}/api/v1/orders/${orderInfor._id}/payment-notification`;
                 const requestId = uuidv4();
                 const requestBody = createPaymentBody(
@@ -647,7 +651,7 @@ const confirmDelivery = async (req, res) => {
         data: JSON.stringify({
             shop_id: Number(process.env.GHN_SHOP_ID),
             payment_type_id: 1,
-            note: '',
+            note: order.delivery.note || '',
             required_note: required_note || order.delivery.required_note,
             client_order_code: order.user,
             to_name: order.delivery.to_name,
@@ -763,9 +767,13 @@ const confirmReceived = async (req, res) => {
     }
     order.statusHistory.push({ status: 'completed', description: description, updateBy: req.user._id });
     order.status = 'completed';
+    console.log(order.orderItems);
     order.orderItems = order.orderItems.map((orderItem) => {
+        console.log(orderItem);
         orderItem.isAbleToReview = true;
+        return orderItem;
     });
+    console.log(order.orderItems);
     const updateOrder = await order.save();
     res.status(200).json({ message: 'Xác nhận đã nhận hàng thành công', data: { updateOrder } });
 };
@@ -935,10 +943,13 @@ const cancelOrder = async (req, res, next) => {
     const orderId = req.params.id || '';
     const description = req.body.description?.toString()?.trim() || '';
     const order = await Order.findOne({ _id: orderId }).populate('delivery');
+
     if (!order) {
         res.status(404);
         throw new Error('Đơn hàng không tồn tại');
     }
+    console.log(typeof req.user._id);
+    console.log(typeof order.user);
     if (req.user.role == 'admin' || req.user.role == 'staff') {
         switch (order.status) {
             case 'delivered':
@@ -953,7 +964,7 @@ const cancelOrder = async (req, res, next) => {
             default:
                 break;
         }
-    } else if (req.user._id == order.user) {
+    } else if (req.user._id.toString() == order.user.toString()) {
         switch (order.status) {
             case 'confirm':
                 res.status(400);
@@ -1015,6 +1026,7 @@ const cancelOrder = async (req, res, next) => {
                         return response.data.data;
                     })
                     .catch((error) => {
+                        console.log(error.response);
                         res.status(error.response.data.code || 502);
                         throw new Error(error.response.data.message || error.message || null);
                     });

@@ -10,6 +10,13 @@ deliveryRouter.get('/address/province', asyncHandler(deliveryController.getProvi
 deliveryRouter.get('/address/:id/district', asyncHandler(deliveryController.getDistrict));
 deliveryRouter.get('/address/:id/ward', asyncHandler(deliveryController.getWard));
 deliveryRouter.post('/shipping-order/fee', validate.calculateFee, asyncHandler(deliveryController.calculateFee));
+deliveryRouter.post('/shipping-order/services', validate.services, asyncHandler(deliveryController.services));
+deliveryRouter.post(
+    '/shipping-order/:id/preview',
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(deliveryController.preview),
+);
 deliveryRouter.post(
     '/shipping-order/lead-time',
     validate.estimatedDeliveryTime,
