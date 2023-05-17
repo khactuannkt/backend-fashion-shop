@@ -172,10 +172,15 @@ const updateCategory = async (req, res, next) => {
         res.status(404);
         throw new Error('Danh mục không tồn tại');
     }
-    const { name, description, level, image, parent } = req.body;
+
+    const { name, description, level, image, parent, updatedVersion } = req.body;
     const imageFile = req.body.imageFile ? JSON.parse(req.body.imageFile) : '';
     let newParentCat, currentParentCat;
-
+    if (currentCategory.updatedVersion != updatedVersion) {
+        res.status(400);
+        throw new Error('Danh mục vừa được cập nhật thông tin, vui lòng làm mới lại trang để lấy thông tin mới nhất');
+    }
+    currentCategory.updatedVersion = Number(currentCategory.updatedVersion) + 1;
     if (currentCategory.name !== name) {
         //check the existence of the category
         const categoryExists = await Category.findOne({ name: name.trim() });
@@ -202,7 +207,6 @@ const updateCategory = async (req, res, next) => {
             res.status(404);
             throw new Error('Danh mục mẹ không tồn tại');
         }
-
         if (
             newParentCat.level > currentCategory.level ||
             (newParentCat.level == currentCategory.level &&

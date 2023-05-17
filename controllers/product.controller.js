@@ -86,7 +86,7 @@ const getProducts = async (req, res) => {
         .populate('category')
         .populate('variants');
 
-    res.status(200).json({
+    res.json({
         message: 'Success',
         data: { products, page, pages: Math.ceil(count / limit), total: count },
     });
@@ -226,7 +226,7 @@ const getProductRecommend = async (req, res) => {
     if (!categoryName) {
         categoryIds = await Category.find({ disabled: false }).select({ _id: 1 });
     } else {
-        const findCategory = await Category.findOne({ _id: categoryName, disabled: false }).select({
+        const findCategory = await Category.findOne({ slug: categoryName, disabled: false }).select({
             _id: 1,
             children: 1,
         });
@@ -647,9 +647,8 @@ const reviewProduct = async (req, res) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-
-    const { rating, comment } = req.body;
-    const productId = req.params.id;
+    const { rating, content } = req.body;
+    const productId = req.params.id || '';
     const product = await Product.findOne({ _id: productId });
     if (!product) {
         res.status(404);
@@ -657,9 +656,9 @@ const reviewProduct = async (req, res) => {
     }
     const order = await Order.findOne({
         user: req.user._id,
+        status: 'completed',
         'orderItems.product': product._id,
         'orderItems.isAbleToReview': true,
-        'orderItems.statusHistory.status': 'completed',
     });
     if (!order) {
         res.status(400);
@@ -668,7 +667,7 @@ const reviewProduct = async (req, res) => {
     const review = {
         name: req.user.name,
         rating: Number(rating),
-        comment: String(comment),
+        content: String(content),
         user: req.user._id,
     };
     product.reviews.push(review);

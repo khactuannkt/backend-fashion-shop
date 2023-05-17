@@ -660,12 +660,6 @@ const validate = {
         //     .withMessage('Giá trị các thuộc tính của biến thể sản phẩm không được để trống'),
     ],
     review: [
-        check('id').custom((id) => {
-            if (!ObjectId.isValid(id)) {
-                throw new Error('ID sản phẩm không hợp lệ');
-            }
-            return true;
-        }),
         check('rating')
             .notEmpty()
             .withMessage('Số sao đánh giá không được để trống')

@@ -150,7 +150,7 @@ const calculateFee = async (shippingAddress, size, price) => {
             shop_id: Number(process.env.GHN_SHOP_ID),
             service_id: 53320,
             to_district_id: Number(shippingAddress.to_district_id),
-            to_ward_code: shippingAddress.to_ward_code,
+            to_ward_code: new String(shippingAddress.to_ward_code),
             height: size.height,
             length: size.length,
             weight: size.weight,
@@ -618,6 +618,7 @@ const confirmDelivery = async (req, res) => {
     }
     const orderId = req.params.id;
     const description = req.body.description?.toString().trim() || '';
+    const required_note = req.body.requiredNote || null;
     const order = await Order.findOne({ _id: orderId, disabled: false }).populate('delivery');
     if (!order) {
         res.status(404);
@@ -647,7 +648,7 @@ const confirmDelivery = async (req, res) => {
             shop_id: Number(process.env.GHN_SHOP_ID),
             payment_type_id: 1,
             note: '',
-            required_note: order.delivery.required_note,
+            required_note: required_note || order.delivery.required_note,
             client_order_code: order.user,
             to_name: order.delivery.to_name,
             to_phone: order.delivery.to_phone,
@@ -751,9 +752,6 @@ const confirmReceived = async (req, res) => {
         case 'confirm':
             res.status(400);
             throw new Error('Đơn hàng  chỉ mới xác nhận chưa bắt đầu giao hàng');
-        case 'delivered':
-            res.status(400);
-            throw new Error('Đơn hàng đã được giao thành công');
         case 'completed':
             res.status(400);
             throw new Error('Đơn hàng đã được hoàn thành');
@@ -765,6 +763,9 @@ const confirmReceived = async (req, res) => {
     }
     order.statusHistory.push({ status: 'completed', description: description, updateBy: req.user._id });
     order.status = 'completed';
+    order.orderItems = order.orderItems.map((orderItem) => {
+        orderItem.isAbleToReview = true;
+    });
     const updateOrder = await order.save();
     res.status(200).json({ message: 'Xác nhận đã nhận hàng thành công', data: { updateOrder } });
 };
@@ -839,7 +840,6 @@ const getOrderPaymentStatus = async (req, res) => {
     }
     //Create payment information with momo
     const requestBody = createCheckStatusBody(order._id, order.paymentInformation.requestId);
-    console.log(requestBody);
     const config = {
         headers: {
             'Content-Type': 'application/json',
@@ -849,7 +849,6 @@ const getOrderPaymentStatus = async (req, res) => {
     const result = await momo_Request
         .post('/query', requestBody, config)
         .then((response) => {
-            console.log(response);
             if (response.data.resultCode == 0) {
                 order.paymentInformation.refundTrans = response.data.refundTrans || [];
                 order.paymentInformation.transId = response.data.transId || null;
@@ -858,7 +857,6 @@ const getOrderPaymentStatus = async (req, res) => {
             res.status(200).json(response.data);
         })
         .catch(async (error) => {
-            console.log(error);
             res.status(400);
             throw new Error(error.response?.message || error.message);
         });
@@ -880,7 +878,6 @@ const refundTrans = async (req, res) => {
         order.paymentInformation.requestId,
         '2976716175',
     );
-    console.log(requestBody);
     const config = {
         headers: {
             'Content-Type': 'application/json',
@@ -937,7 +934,7 @@ const cancelOrder = async (req, res, next) => {
     }
     const orderId = req.params.id || '';
     const description = req.body.description?.toString()?.trim() || '';
-    const order = await Order.findOne({ _id: orderId });
+    const order = await Order.findOne({ _id: orderId }).populate('delivery');
     if (!order) {
         res.status(404);
         throw new Error('Đơn hàng không tồn tại');
@@ -988,25 +985,46 @@ const cancelOrder = async (req, res, next) => {
     };
     try {
         await session.withTransaction(async () => {
-            console.log(order.orderItems);
-            console.log(typeof order.orderItems);
-
-            order.orderItems.map(async (orderItem) => {
-                const updateProduct = Product.findOneAndUpdate(
+            const updateOrderItems = order.orderItems.map(async (orderItem) => {
+                const updateProduct = await Product.findOneAndUpdate(
                     { _id: orderItem.product },
                     { $inc: { totalSales: -orderItem.quantity, quantity: +orderItem.quantity } },
                 ).session(session);
-                const updateVariant = Variant.findOneAndUpdate(
+                const updateVariant = await Variant.findOneAndUpdate(
                     { product: orderItem.product._id, attributes: orderItem.attributes },
                     { $inc: { quantity: +orderItem.quantity } },
                     { new: true },
                 ).session(session);
-                await Promise.all([updateProduct, updateVariant]).catch(async (error) => {
+                // await Promise.all([updateProduct, updateVariant]).catch(async (error) => {
+                //     console.log(error);
+                //     await session.abortTransaction();
+                //     res.status(502);
+                //     throw new Error('Gặp lỗi khi hủy đơn hàng');
+                // });
+            });
+            await Promise.all(updateOrderItems);
+            if (order.status == 'delivering' && order.delivery.deliveryCode) {
+                const config = {
+                    data: JSON.stringify({
+                        shop_id: Number(process.env.GHN_SHOP_ID),
+                        order_codes: [new String(order.delivery.deliveryCode)],
+                    }),
+                };
+                const deliveryInfo = await GHN_Request.get('v2/switch-status/cancel', config)
+                    .then((response) => {
+                        return response.data.data;
+                    })
+                    .catch((error) => {
+                        res.status(error.response.data.code || 502);
+                        throw new Error(error.response.data.message || error.message || null);
+                    });
+
+                if (!deliveryInfo) {
                     await session.abortTransaction();
                     res.status(502);
-                    throw new Error('Gặp lỗi khi hủy đơn hàng');
-                });
-            });
+                    throw new Error('Gặp lỗi khi hủy đơn giao hàng của đơn vị Giao Hàng Nhanh');
+                }
+            }
             order.status = 'cancelled';
             order.statusHistory.push({ status: 'cancelled', description: description });
             const cancelledOrder = await order.save();

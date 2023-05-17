@@ -42,8 +42,8 @@ const variantSchema = mongoose.Schema(
         },
         deleted: {
             type: Boolean,
-            required: true,
             default: false,
+            required: true,
         },
         disabled: {
             type: Boolean,
