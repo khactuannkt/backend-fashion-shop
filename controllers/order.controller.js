@@ -553,17 +553,19 @@ const createOrder = async (req, res, next) => {
 
             orderInfor.paymentInformation = createOrderPaymentInformation._id;
             //start cron-job
-            let scheduledJob = schedule.scheduleJob(`*/ 2 * * * *`, async () => {
+            let scheduledJob = schedule.scheduleJob(`*/2 * * * *`, async () => {
                 console.log(`Đơn hàng "${orderInfor._id}" đã bị hủy `);
                 const foundOrder = await Order.findOne({
                     _id: orderInfor._id,
-                    statusHistory: { $elemMatch: { status: { $ne: 'paid' } } },
-                });
-                foundOrder.statusHistory.push({
-                    status: 'cancelled',
-                    description: 'Đơn hàng bị hủy do chưa được thanh toán',
-                });
-                await foundOrder.save();
+                }).populate('paymentInformation');
+                if (!foundOrder.paymentInformation.paid) {
+                    foundOrder.statusHistory.push({
+                        status: 'cancelled',
+                        description: 'Đơn hàng bị hủy do chưa được thanh toán',
+                    });
+                    foundOrder.status = 'cancelled';
+                    await foundOrder.save();
+                }
                 scheduledJob.cancel();
             });
             await Cart.findOneAndUpdate(
@@ -817,6 +819,7 @@ const orderPaymentNotification = async (req, res) => {
     if (req.body.resultCode != 0) {
         const message = statusResponseFalse[req.body.resultCode] || statusResponseFalse[99];
         order.statusHistory.push({ status: 'cancelled', description: message });
+        order.status = 'cancelled';
         await order.save();
         res.status(400);
         throw new Error('Thanh toán thất bại');

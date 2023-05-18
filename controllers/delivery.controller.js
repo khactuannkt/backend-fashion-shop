@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import { GHN_Request } from '../utils/request.js';
 import { validationResult } from 'express-validator';
 import Order from '../models/order.model.js';
+import schedule, { scheduleJob } from 'node-schedule';
 
 const getDistrict = async (req, res) => {
     // Validate the request data using express-validator
@@ -55,6 +56,13 @@ const getProvince = async (req, res) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
+    let scheduledJob = schedule.scheduleJob(`*/1 * * * *`, async () => {
+        console.log('test cron job');
+        console.log('test cron job');
+        console.log('test cron job');
+        console.log('test cron job');
+        console.log('test cron job');
+    });
     await GHN_Request.get('/master-data/province')
         .then((response) => {
             res.status(200).json({ message: 'Success', data: { provinces: response.data.data } });
