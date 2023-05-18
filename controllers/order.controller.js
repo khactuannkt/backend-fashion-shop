@@ -13,6 +13,7 @@ import Payment from '../models/payment.model.js';
 import { v4 as uuidv4 } from 'uuid';
 import { momo_Request, GHN_Request } from '../utils/request.js';
 import Delivery from '../models/delivery.model.js';
+import statusResponseFalse from '../utils/messageMoMo.js';
 
 //CONSTANT
 const TYPE_DISCOUNT_MONEY = 1;
@@ -551,7 +552,19 @@ const createOrder = async (req, res, next) => {
             }
 
             orderInfor.paymentInformation = createOrderPaymentInformation._id;
-
+            //start cron-job
+            let scheduledJob = schedule.scheduleJob(`*/2 * * * *`, async () => {
+                console.log(`Đơn hàng "${orderInfor._id}" đã bị hủy `);
+                const foundOrder = await Order.findOne({
+                    _id: orderInfor._id,
+                    statusHistory: { $elemMatch: { status: { $ne: 'paid' } } },
+                });
+                foundOrder.statusHistory.push({
+                    status: 'cancelled',
+                    description: 'Đơn hàng bị hủy do chưa được thanh toán',
+                });
+                scheduledJob.cancel();
+            });
             await Cart.findOneAndUpdate(
                 { user: req.user._id },
                 { $pull: { cartItems: { variant: { $in: productCheckResult.orderItemIds } } } },
@@ -767,13 +780,10 @@ const confirmReceived = async (req, res) => {
     }
     order.statusHistory.push({ status: 'completed', description: description, updateBy: req.user._id });
     order.status = 'completed';
-    console.log(order.orderItems);
     order.orderItems = order.orderItems.map((orderItem) => {
-        console.log(orderItem);
         orderItem.isAbleToReview = true;
         return orderItem;
     });
-    console.log(order.orderItems);
     const updateOrder = await order.save();
     res.status(200).json({ message: 'Xác nhận đã nhận hàng thành công', data: { updateOrder } });
 };
@@ -782,7 +792,6 @@ const orderPaymentNotification = async (req, res) => {
     // Validate the request data using express-validator
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        console.log(errors.array()[0]);
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
@@ -805,6 +814,8 @@ const orderPaymentNotification = async (req, res) => {
         throw new Error('Thông tin xác nhận thanh toán không hợp lệ');
     }
     if (req.body.resultCode != 0) {
+        const message = statusResponseFalse[req.body.resultCode] || statusResponseFalse[99];
+        order.statusHistory.push({ status: 'cancelled', description: message });
         res.status(400);
         throw new Error('Thanh toán thất bại');
     } else {
