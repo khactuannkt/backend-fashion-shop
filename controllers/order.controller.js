@@ -786,7 +786,8 @@ const orderPaymentNotification = async (req, res) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-    const orderId = req.body.orderId.toString().trim() || '';
+    console.log(JSON.stringify(req.body));
+    const orderId = req.body.orderId?.toString().trim() || '';
     if (!orderId) {
         res.status(400);
         throw new Error('Mã đơn hàng là giá trị bắt buộc');
@@ -803,12 +804,17 @@ const orderPaymentNotification = async (req, res) => {
         res.status(400);
         throw new Error('Thông tin xác nhận thanh toán không hợp lệ');
     }
-    order.statusHistory.push({ status: 'paid', updateBy: order.user });
-    order.paymentInformation.paid = true;
-    order.paymentInformation.paidAt = new Date();
-    await order.paymentInformation.save();
-    await order.save();
-    res.status(204);
+    if (req.body.resultCode != 0) {
+        res.status(400);
+        throw new Error('Thanh toán thất bại');
+    } else {
+        order.statusHistory.push({ status: 'paid', updateBy: order.user });
+        order.paymentInformation.paid = true;
+        order.paymentInformation.paidAt = new Date();
+        await order.paymentInformation.save();
+        await order.save();
+        res.status(204);
+    }
 };
 
 const userPaymentOrder = async (req, res) => {
