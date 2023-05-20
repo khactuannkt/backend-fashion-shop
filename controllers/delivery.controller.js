@@ -56,13 +56,7 @@ const getProvince = async (req, res) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-    let scheduledJob = schedule.scheduleJob(`*/1 * * * *`, async () => {
-        console.log('test cron job');
-        console.log('test cron job');
-        console.log('test cron job');
-        console.log('test cron job');
-        console.log('test cron job');
-    });
+
     await GHN_Request.get('/master-data/province')
         .then((response) => {
             res.status(200).json({ message: 'Success', data: { provinces: response.data.data } });
@@ -197,7 +191,10 @@ const preview = async (req, res) => {
     const orderId = req.params.id;
     const required_note = req.body.requiredNote || null;
     const order = await Order.findOne({ _id: orderId, disabled: false }).populate('delivery');
-
+    if (!order) {
+        res.status(400);
+        throw new Error('Đơn hàng không tồn tại');
+    }
     const config = {
         data: JSON.stringify({
             shop_id: Number(process.env.GHN_SHOP_ID),
@@ -234,110 +231,54 @@ const preview = async (req, res) => {
 
     res.status(200).json({ data: { deliveryInfo } });
 };
-// const createShippingOrder = async (req, res) => {
-//     // Validate the request data using express-validator
-//     const errors = validationResult(req);
-//     if (!errors.isEmpty()) {
-//         const message = errors.array()[0].msg;
-//         return res.status(400).json({ message: message });
-//     }
-//     const {
-//         payment_type_id,
-//         note,
-//         from_name,
-//         from_phone,
-//         from_address,
-//         from_ward_name,
-//         from_district_name,
-//         from_province_name,
-//         required_note,
-//         return_name,
-//         return_phone,
-//         return_address,
-//         return_ward_name,
-//         return_district_name,
-//         return_province_name,
-//         client_order_code,
-//         to_name,
-//         to_phone,
-//         to_address,
-//         to_ward_name,
-//         to_district_name,
-//         to_province_name,
-//         cod_amount,
-//         content,
-//         weight,
-//         length,
-//         width,
-//         height,
-//         cod_failed_amount,
-//         pick_station_id,
-//         deliver_station_id,
-//         insurance_value,
-//         service_id,
-//         service_type_id,
-//         coupon,
-//         pick_shift,
-//         pickup_time,
-//         items,
-//     } = req.body;
-
-//     const config = {
-//         data: JSON.stringify({
-//             payment_type_id,
-//             note,
-//             from_name,
-//             from_phone,
-//             from_address,
-//             from_ward_name,
-//             from_district_name,
-//             from_province_name,
-//             required_note,
-//             return_name,
-//             return_phone,
-//             return_address,
-//             return_ward_name,
-//             return_district_name,
-//             return_province_name,
-//             client_order_code,
-//             to_name,
-//             to_phone,
-//             to_address,
-//             to_ward_name,
-//             to_district_name,
-//             to_province_name,
-//             cod_amount,
-//             content,
-//             weight,
-//             length,
-//             width,
-//             height,
-//             cod_failed_amount,
-//             pick_station_id,
-//             deliver_station_id,
-//             insurance_value,
-//             service_id,
-//             service_type_id,
-//             coupon,
-//             pick_shift,
-//             pickup_time,
-//             items,
-//         }),
-//     };
-//     await GHN_Request.get('v2/shipping-order/create', config)
-//         .then((response) => {
-//             res.status(200).json({ message: 'Success', data: { shippingOrder: response.data.data } });
-//         })
-//         .catch((error) => {
-//             if (error.response.status && error.response.status == '400') {
-//                 res.status(error.response.status);
-//                 throw new Error('Sai thông tin đầu vào. Vui lòng thử lại.');
-//             } else {
-//                 res.status(500);
-//                 throw new Error(error.response.message || error.message);
-//             }
-//         });
-// };
+const printOrder = async (req, res) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ message: message });
+    }
+    const orderId = req.params.id || '';
+    const pageSize = req.params.pageSize || 'A5';
+    console.log(orderId);
+    if (!orderId || orderId.trim() == '') {
+        res.status(400);
+        throw new Error('Đơn hàng không tồn tại');
+    }
+    if (pageSize != '52x70' && pageSize != 'A5' && pageSize != '80x80') {
+        res.status(400);
+        throw new Error('Kích thước giấy in không hợp lệ');
+    }
+    const order = await Order.findOne({ _id: orderId, disabled: false }).populate('delivery');
+    if (!order) {
+        res.status(400);
+        throw new Error('Đơn hàng không tồn tại');
+    }
+    if (!order.delivery.deliveryCode || order.delivery?.deliveryCode.trim() == '') {
+        res.status(400);
+        throw new Error('Đơn hàng chưa tạo đơn giao của đơn vị vận chuyển');
+    }
+    const config = {
+        data: JSON.stringify({
+            order_codes: [order.delivery.deliveryCode],
+        }),
+    };
+    await GHN_Request.get('v2/a5/gen-token', config)
+        .then((response) => {
+            res.status(200).json({
+                message: 'Success',
+                data: {
+                    url: `${process.env.GHN_REQUEST_URL}/a5/public-api/print${pageSize}?token=${response.data.data.token}`,
+                },
+            });
+        })
+        .catch((error) => {
+            res.status(error.response.data.code || 500);
+            throw new Error(
+                error.response.data.message.code_message_value || error.response.data.message || error.message || '',
+            );
+        });
+};
 
 const deliveryController = {
     getDistrict,
@@ -347,6 +288,6 @@ const deliveryController = {
     estimatedDeliveryTime,
     services,
     preview,
-    // createShippingOrder,
+    printOrder,
 };
 export default deliveryController;

@@ -553,7 +553,7 @@ const createOrder = async (req, res, next) => {
 
             orderInfor.paymentInformation = createOrderPaymentInformation._id;
             //start cron-job
-            let scheduledJob = schedule.scheduleJob(`*/2 * * * *`, async () => {
+            let scheduledJob = schedule.scheduleJob(`*/${PAYMENT_EXPIRY_TIME_IN_MINUTE} * * * *`, async () => {
                 console.log(`Đơn hàng "${orderInfor._id}" đã bị hủy `);
                 const foundOrder = await Order.findOne({
                     _id: orderInfor._id,
@@ -563,8 +563,10 @@ const createOrder = async (req, res, next) => {
                         status: 'cancelled',
                         description: 'Đơn hàng bị hủy do chưa được thanh toán',
                     });
-                    foundOrder.status = 'cancelled';
-                    await foundOrder.save();
+                    if (foundOrder.status != 'cancelled') {
+                        foundOrder.status = 'cancelled';
+                        await foundOrder.save();
+                    }
                 }
                 scheduledJob.cancel();
             });

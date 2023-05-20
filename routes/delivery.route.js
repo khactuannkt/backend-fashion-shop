@@ -9,6 +9,12 @@ const deliveryRouter = express.Router();
 deliveryRouter.get('/address/province', asyncHandler(deliveryController.getProvince));
 deliveryRouter.get('/address/:id/district', asyncHandler(deliveryController.getDistrict));
 deliveryRouter.get('/address/:id/ward', asyncHandler(deliveryController.getWard));
+deliveryRouter.get(
+    '/shipping-order/:id/print/:pageSize',
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(deliveryController.printOrder),
+);
 deliveryRouter.post('/shipping-order/fee', validate.calculateFee, asyncHandler(deliveryController.calculateFee));
 deliveryRouter.post('/shipping-order/services', validate.services, asyncHandler(deliveryController.services));
 deliveryRouter.post(

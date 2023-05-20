@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 export const GHN_Request = axios.create({
-    baseURL: 'https://dev-online-gateway.ghn.vn/shiip/public-api',
+    baseURL: `${process.env.GHN_REQUEST_URL}/shiip/public-api`,
     headers: {
         'Content-Type': 'application/json',
         token: process.env.GHN_TOKEN_API,
@@ -10,7 +10,7 @@ export const GHN_Request = axios.create({
 });
 
 export const momo_Request = axios.create({
-    baseURL: 'https://test-payment.momo.vn/v2/gateway/api',
+    baseURL: process.env.MOMO_REQUEST_URL,
     headers: {
         'Content-Type': 'application/json',
         // 'Content-Length': Buffer.byteLength(requestBody),

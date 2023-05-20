@@ -9,7 +9,7 @@ const deliverySchema = mongoose.Schema(
         },
         deliveryCode: {
             type: String,
-            default: '',
+            default: null,
         },
         client: {
             type: mongoose.Schema.Types.ObjectId,
