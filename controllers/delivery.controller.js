@@ -240,7 +240,6 @@ const printOrder = async (req, res) => {
     }
     const orderId = req.params.id || '';
     const pageSize = req.params.pageSize || 'A5';
-    console.log(orderId);
     if (!orderId || orderId.trim() == '') {
         res.status(400);
         throw new Error('Đơn hàng không tồn tại');
@@ -279,6 +278,50 @@ const printOrder = async (req, res) => {
             );
         });
 };
+const updateCOD = async (req, res) => {
+    // Validate the request data using express-validator
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const message = errors.array()[0].msg;
+        return res.status(400).json({ message: message });
+    }
+    const orderId = req.params.id || '';
+    const cod_amount = req.body.cod_amount || 0;
+    if (!orderId || orderId.trim() == '') {
+        res.status(400);
+        throw new Error('Đơn hàng không tồn tại');
+    }
+    const order = await Order.findOne({ _id: orderId, disabled: false }).populate('delivery');
+    if (!order) {
+        res.status(400);
+        throw new Error('Đơn hàng không tồn tại');
+    }
+    if (!order.delivery.deliveryCode || order.delivery?.deliveryCode.trim() == '') {
+        res.status(400);
+        throw new Error('Đơn hàng chưa tạo đơn giao của đơn vị vận chuyển');
+    }
+    const config = {
+        data: JSON.stringify({
+            order_code: order.delivery.deliveryCode,
+            cod_amount: cod_amount,
+        }),
+    };
+    await GHN_Request.get('/v2/shipping-order/updateCOD', config)
+        .then(async (response) => {
+            order.delivery.cod_amount = cod_amount;
+            await order.delivery.save();
+            res.status(200).json({
+                message: 'Success',
+                data: null,
+            });
+        })
+        .catch((error) => {
+            res.status(error.response.data.code || 500);
+            throw new Error(
+                error.response.data.message.code_message_value || error.response.data.message || error.message || '',
+            );
+        });
+};
 
 const deliveryController = {
     getDistrict,
@@ -289,5 +332,6 @@ const deliveryController = {
     services,
     preview,
     printOrder,
+    updateCOD,
 };
 export default deliveryController;

@@ -16,7 +16,7 @@ dotenv.config();
 
 const getUsersByAdmin = async (req, res) => {
     const users = await User.find();
-    res.status(200).json({ data: { users } });
+    res.status(200).json({ message: 'Success', data: { users } }).lean();
 };
 
 const login = async (req, res) => {
@@ -60,9 +60,11 @@ const login = async (req, res) => {
             throw new Error('Authentication token generation failed');
         }
         res.status(200).json({
+            message: 'Success',
             data: {
                 user: userData,
-                ...generateToken,
+                accessToken: generateToken.accessToken,
+                refreshToken: generateToken.refreshToken,
             },
         });
     } else {
@@ -91,16 +93,26 @@ const refreshToken = async (req, res) => {
             throw new Error('Not authorized, token failed');
         }
         const generateToken = generateAuthToken(verifyToken.user._id);
-        const newToken = await new Token({
-            user: verifyToken.user._id,
-            ...generateToken,
-        }).save();
-        if (!newToken) {
-            res.status(500);
-            throw new Error('Authentication token generation failed');
-        }
+        verifyToken.accessToken = generateToken.accessToken;
+        verifyToken.refreshToken = generateToken.refreshToken;
+        verifyToken.expiresIn = generateToken.expiresIn;
+        await verifyToken.save();
+        const userData = {
+            _id: verifyToken.user._id,
+            name: verifyToken.user.name,
+            email: verifyToken.user.email,
+            role: verifyToken.user.role,
+            phone: verifyToken.user.phone,
+            avatar: verifyToken.user.avatar,
+            gender: verifyToken.user.gender,
+            birthday: verifyToken.user.birthday,
+            address: verifyToken.user.address,
+            createdAt: verifyToken.user.createdAt,
+            updatedAt: verifyToken.user.updatedAt,
+        };
         res.status(200).json({
             data: {
+                user: userData,
                 accessToken: generateToken.accessToken,
                 refreshToken: generateToken.refreshToken,
             },
@@ -120,7 +132,7 @@ const register = async (req, res) => {
 
     const { name, phone, password } = req.body;
     const email = req.body.email.toString().toLowerCase();
-    const userExists = await User.findOne({ email });
+    const userExists = await User.exists({ email });
     if (userExists) {
         res.status(400);
         throw new Error('Tài khoản đã tồn tại');
@@ -139,11 +151,10 @@ const register = async (req, res) => {
 
     //start cron-job
     let scheduledJob = schedule.scheduleJob(`*/${process.env.EMAIL_VERIFY_EXPIED_TIME_IN_MINUTE} * * * *`, async () => {
-        console.log('Deletion of unverified users begins');
         const foundUser = await User.findOneAndDelete({
             _id: user._id,
             isVerified: false,
-        });
+        }).lean();
         scheduledJob.cancel();
     });
 
@@ -163,10 +174,10 @@ const register = async (req, res) => {
 };
 
 const verifyEmail = async (req, res) => {
-    const emailVerificationToken = req.query.emailVerificationToken.toString().trim();
+    const emailVerificationToken = req.query.emailVerificationToken?.toString().trim() || '';
     if (!emailVerificationToken || emailVerificationToken === '') {
         res.status(400);
-        throw new Error('Token xác minh email không hợp lệ');
+        throw new Error('Mã thông báo xác minh email không tồn tại');
     }
     const hashedToken = crypto.createHash('sha256').update(emailVerificationToken).digest('hex');
     const user = await User.findOne({ emailVerificationToken: hashedToken, isVerified: false });
@@ -211,7 +222,8 @@ const verifyEmail = async (req, res) => {
         message: 'Xác minh Tài khoản thành công',
         data: {
             user: userData,
-            ...generateToken,
+            accessToken: generateToken.accessToken,
+            refreshToken: generateToken.refreshToken,
         },
     });
 };
@@ -223,7 +235,7 @@ const cancelVerifyEmail = async (req, res, next) => {
         throw new Error('Mã thông báo xác minh email không hợp lệ');
     }
     const hashedToken = crypto.createHash('sha256').update(emailVerificationToken).digest('hex');
-    const user = await User.findOneAndDelete({ emailVerificationToken: hashedToken, isVerified: false });
+    const user = await User.findOneAndDelete({ emailVerificationToken: hashedToken, isVerified: false }).lean();
     if (!user) {
         res.status(400);
         throw new Error('Mã thông báo xác minh email không tồn tại');
@@ -295,12 +307,12 @@ const resetPassword = async (req, res) => {
     user.resetPasswordToken = null;
     user.resetPasswordTokenExpiryTime = null;
     await user.save();
-    await Token.deleteMany({ user: user._id });
+    await Token.deleteMany({ user: user._id }).lean();
     res.status(200).json({ message: 'Mật khẩu của bạn đã được đặt lại' });
 };
 
 const cancelResetPassword = async (req, res) => {
-    const resetPasswordToken = req.query.resetPasswordToken.toString().trim();
+    const resetPasswordToken = req.query.resetPasswordToken?.toString().trim();
     if (!resetPasswordToken || resetPasswordToken === '') {
         res.status(400);
         throw new Error('Mã thông báo đặt lại mật khẩu không hợp lệ');
@@ -318,7 +330,7 @@ const cancelResetPassword = async (req, res) => {
             resetPasswordToken: null,
             resetPasswordTokenExpiryTime: null,
         },
-    );
+    ).lean();
     if (!user) {
         res.status(400);
         throw new Error('Mã thông báo đặt lại mật khẩu không tồn tại');
@@ -327,13 +339,15 @@ const cancelResetPassword = async (req, res) => {
 };
 
 const getProfile = async (req, res) => {
-    const user = await User.findById(req.user._id).select({
-        password: 0,
-        isVerified: 0,
-        emailVerificationToken: 0,
-        resetPasswordToken: 0,
-        resetPasswordTokenExpiryTime: 0,
-    });
+    const user = await User.findById(req.user._id)
+        .select({
+            password: 0,
+            isVerified: 0,
+            emailVerificationToken: 0,
+            resetPasswordToken: 0,
+            resetPasswordTokenExpiryTime: 0,
+        })
+        .lean();
     if (!user) {
         res.status(404);
         throw new Error('Tài khoản không tồn tại');
@@ -521,7 +535,7 @@ const removeUserAddress = async (req, res) => {
     res.status(200).json({ message: 'Xóa địa chỉ thành công', data: { addressList: req.user.address } });
 };
 const getUserDiscountCode = async (req, res) => {
-    const discountCodeList = await DiscountCode.find({ _id: { $in: [...req.user.discountCode] } });
+    const discountCodeList = await DiscountCode.find({ _id: { $in: [...req.user.discountCode] } }).lean();
     res.json({
         message: 'Success',
         data: {

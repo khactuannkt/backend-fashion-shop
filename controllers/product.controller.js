@@ -51,12 +51,14 @@ const getProducts = async (req, res) => {
     let categoryName = req.query.category || null;
     let categoryIds = [];
     if (!categoryName) {
-        categoryIds = await Category.find({ disabled: false }).select({ _id: 1 });
+        categoryIds = await Category.find({ disabled: false }).select({ _id: 1 }).lean();
     } else {
-        const findCategory = await Category.findOne({ slug: categoryName, disabled: false }).select({
-            _id: 1,
-            children: 1,
-        });
+        const findCategory = await Category.findOne({ slug: categoryName, disabled: false })
+            .select({
+                _id: 1,
+                children: 1,
+            })
+            .lean();
         if (findCategory) {
             categoryIds.push(findCategory._id, ...findCategory.children);
         }
@@ -84,7 +86,8 @@ const getProducts = async (req, res) => {
         .skip(limit * page)
         .sort(sortBy)
         .populate('category')
-        .populate('variants');
+        .populate('variants')
+        .lean();
 
     res.json({
         message: 'Success',
@@ -132,12 +135,14 @@ const getProductsByAdmin = async (req, res) => {
     let categoryName = req.query.category || null;
     let categoryIds = [];
     if (!categoryName) {
-        categoryIds = await Category.find({ disabled: false }).select({ _id: 1 });
+        categoryIds = await Category.find({ disabled: false }).select({ _id: 1 }).lean();
     } else {
-        const findCategory = await Category.findOne({ slug: categoryName, disabled: false }).select({
-            _id: 1,
-            children: 1,
-        });
+        const findCategory = await Category.findOne({ slug: categoryName, disabled: false })
+            .select({
+                _id: 1,
+                children: 1,
+            })
+            .lean();
         if (findCategory) {
             categoryIds.push(findCategory._id, ...findCategory.children);
         }
@@ -165,8 +170,8 @@ const getProductsByAdmin = async (req, res) => {
         .skip(limit * page)
         .sort(sortBy)
         .populate('category')
-        .populate('variants');
-
+        .populate('variants')
+        .lean();
     res.status(200).json({
         message: 'Success',
         data: { products, page, pages: Math.ceil(count / limit), total: count },
@@ -176,18 +181,27 @@ const getProductSearchResults = async (req, res) => {
     const limit = Number(req.query.limit) || 12; //EDIT HERE
     const keyword = req.query.keyword
         ? {
-              name: {
-                  $regex: req.query.keyword,
-                  $options: 'i',
-              },
+              $or: [
+                  {
+                      name: {
+                          $regex: req.query.keyword,
+                          $options: 'i',
+                      },
+                  },
+                  {
+                      slug: {
+                          $regex: req.query.keyword,
+                          $options: 'i',
+                      },
+                  },
+              ],
           }
         : {};
     const productFilter = {
         ...keyword,
     };
-    const products = await Product.find(productFilter).limit(pageSize).select('name');
-    res.status(200);
-    res.json(products);
+    const products = await Product.find(productFilter).limit(limit).select('name').lean();
+    res.status(200).json({ message: 'Success', data: { products } });
 };
 const getProductRecommend = async (req, res) => {
     const limit = parseInt(req.query.limit) || 12;
@@ -224,12 +238,14 @@ const getProductRecommend = async (req, res) => {
     let categoryName = req.query.category || null;
     let categoryIds = [];
     if (!categoryName) {
-        categoryIds = await Category.find({ disabled: false }).select({ _id: 1 });
+        categoryIds = await Category.find({ disabled: false }).select({ _id: 1 }).lean();
     } else {
-        const findCategory = await Category.findOne({ slug: categoryName, disabled: false }).select({
-            _id: 1,
-            children: 1,
-        });
+        const findCategory = await Category.findOne({ slug: categoryName, disabled: false })
+            .select({
+                _id: 1,
+                children: 1,
+            })
+            .lean();
         if (findCategory) {
             categoryIds.push(findCategory._id, ...findCategory.children);
         }
@@ -254,7 +270,8 @@ const getProductRecommend = async (req, res) => {
         .skip(limit * page)
         .sort(sortBy)
         .populate('category')
-        .populate('variants');
+        .populate('variants')
+        .lean();
 
     res.status(200).json({
         message: 'Success',
@@ -263,18 +280,18 @@ const getProductRecommend = async (req, res) => {
 };
 
 const getAllProductsByAdmin = async (req, res) => {
-    const products = await Product.find().sort({ createdAt: -1 });
+    const products = await Product.find().sort({ createdAt: -1 }).lean();
     res.json({ message: 'Success', data: { products } });
 };
 
 const getProductBySlug = async (req, res) => {
     const slug = req.params.slug.toString().trim() || '';
-    const product = await Product.findOne({ slug: slug }).populate('variants');
+    const product = await Product.findOne({ slug: slug }).populate('variants').lean();
     if (!product) {
         res.status(404);
         throw new Error('Sản phẩm không tồn tại');
     }
-    res.status(200).json({ data: { product } });
+    res.status(200).json({ message: 'Success', data: { product } });
 };
 
 const getProductById = async (req, res) => {
@@ -284,12 +301,12 @@ const getProductById = async (req, res) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-    const product = await Product.findOne({ _id: req.params.id }).populate('variants');
+    const product = await Product.findOne({ _id: req.params.id }).populate('variants').lean();
     if (!product) {
         res.status(404);
         throw new Error('Sản phẩm không tồn tại');
     }
-    res.status(200).json({ data: { product } });
+    res.status(200).json({ message: 'Success', data: { product } });
 };
 
 const createProduct = async (req, res, next) => {
@@ -313,8 +330,8 @@ const createProduct = async (req, res, next) => {
     const keywords = JSON.parse(req.body.keywords) || [];
     const imageFile = req.body.imageFile ? JSON.parse(req.body.imageFile) : [];
 
-    const findProduct = Product.findOne({ name });
-    const findCategory = Category.findOne({ _id: category });
+    const findProduct = Product.exists({ name });
+    const findCategory = Category.findOne({ _id: category }).lean();
     const [existedProduct, existedCategory] = await Promise.all([findProduct, findCategory]);
     if (existedProduct) {
         res.status(400);
@@ -344,7 +361,7 @@ const createProduct = async (req, res, next) => {
     }
     //generate slug
     let generatedSlug = slug(name);
-    const existSlug = await Product.findOne({ slug: generatedSlug });
+    const existSlug = await Product.exists({ slug: generatedSlug });
     if (existSlug) {
         generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
     }
@@ -482,7 +499,10 @@ const updateProduct = async (req, res, next) => {
         res.status(404);
         throw new Error('Sản phẩm không tồn tại');
     }
-
+    if (currentProduct.updatedVersion != updatedVersion) {
+        res.status(400);
+        throw new Error('Sản phẩm vừa được cập nhật thông tin, vui lòng làm mới lại trang để lấy thông tin mới nhất');
+    }
     const session = await mongoose.startSession();
     const transactionOptions = {
         readPreference: 'primary',
@@ -495,7 +515,7 @@ const updateProduct = async (req, res, next) => {
             const generateKeywords = keywords || [];
 
             if (currentProduct.name != name) {
-                const existedProduct = await Product.findOne({ name });
+                const existedProduct = await Product.exists({ name });
                 if (existedProduct) {
                     await session.abortTransaction();
                     res.status(400);
@@ -504,7 +524,7 @@ const updateProduct = async (req, res, next) => {
                 currentProduct.name = name;
                 //generate slug
                 let generatedSlug = slug(name);
-                const existSlug = await Product.findOne({ slug: generatedSlug });
+                const existSlug = await Product.exists({ slug: generatedSlug });
                 if (existSlug) {
                     generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
                 }
@@ -516,7 +536,7 @@ const updateProduct = async (req, res, next) => {
                 generateKeywords.push(...extractKeywordsName, currentProduct.slug);
             }
             if (currentProduct.category != category) {
-                const existedCategory = await Category.findById(category);
+                const existedCategory = await Category.findById(category).lean();
                 if (!existedCategory) {
                     await session.abortTransaction();
                     res.status(400);

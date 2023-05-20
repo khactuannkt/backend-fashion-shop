@@ -18,8 +18,19 @@ const getDiscountCode = async (req, res) => {
               },
           }
         : {};
-    const discountCode = await DiscountCode.find({ ...keyword, disabled: false }).sort({ _id: -1 });
-    return res.status(200).json({ success: true, message: '', data: { discountCode } });
+    const discountCode = await DiscountCode.find({ ...keyword, disabled: false })
+        .sort({ _id: -1 })
+        .lean();
+    const discountCodes = discountCode.map((discount) => {
+        console.log(req.user.discountCode);
+        if (req.user && req.user.discountCode.includes(discount._id)) {
+            discount.isAdd = true;
+        } else {
+            discount.isAdd = false;
+        }
+        return discount;
+    });
+    return res.status(200).json({ message: 'Success', data: { discountCode: discountCodes } });
 };
 
 const getDiscountCodeById = async (req, res) => {
@@ -65,7 +76,6 @@ const createDiscountCode = async (req, res) => {
         applyFor,
         applicableProducts,
     } = req.body;
-    console.log(code);
     const discountCodeExists = await DiscountCode.findOne({ code: code });
     if (discountCodeExists) {
         res.status(400);

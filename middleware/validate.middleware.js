@@ -954,22 +954,6 @@ const validate = {
             .withMessage('Mã quận/huyện của người nhận phải là số nguyên'),
     ],
     estimatedDeliveryTime: [
-        // check('from_district_id').custom((from_district_id) => {
-        //     if (from_district_id) {
-        //         if (typeof from_district_id != 'number') {
-        //             throw new Error('Mã quận/huyện phải là số nguyên');
-        //         }
-        //     }
-        //     return true;
-        // }),
-        // check('from_ward_id').custom((from_ward_id) => {
-        //     if (from_ward_id) {
-        //         if (typeof from_ward_id != 'number') {
-        //             throw new Error('Mã phường/xã của người gửi hàng không được để trống');
-        //         }
-        //     }
-        //     return true;
-        // }),
         check('service_id')
             .notEmpty()
             .withMessage('Mã dịch vụ không được để trống')
@@ -985,6 +969,13 @@ const validate = {
             .withMessage('Mã phường/xã của người nhận hàng không được để trống')
             .isString()
             .withMessage('Mã phường/xã của người nhận phải là chuỗi ký tự'),
+    ],
+    updateCOD: [
+        check('cod_amount')
+            .notEmpty()
+            .withMessage('Số tiền thu hộ không được để trống')
+            .isInt({ min: 0 })
+            .withMessage('Số tiền thu hộ phải là số nguyên và phải lớn hơn hoặc bằng 0'),
     ],
 };
 export default validate;

@@ -18,20 +18,27 @@ deliveryRouter.get(
 deliveryRouter.post('/shipping-order/fee', validate.calculateFee, asyncHandler(deliveryController.calculateFee));
 deliveryRouter.post('/shipping-order/services', validate.services, asyncHandler(deliveryController.services));
 deliveryRouter.post(
+    '/shipping-order/lead-time',
+    validate.estimatedDeliveryTime,
+    asyncHandler(deliveryController.estimatedDeliveryTime),
+);
+deliveryRouter.post(
     '/shipping-order/:id/preview',
     protect,
     auth('staff', 'admin'),
     asyncHandler(deliveryController.preview),
 );
 deliveryRouter.post(
-    '/shipping-order/lead-time',
-    validate.estimatedDeliveryTime,
-    asyncHandler(deliveryController.estimatedDeliveryTime),
+    '/shipping-order/:id/preview',
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(deliveryController.preview),
 );
-// deliveryRouter.get(
-//     '/shipping-order/create',
-//     validate.createShippingOrder,
-//     asyncHandler(deliveryController.createShippingOrder),
-// );
-
+deliveryRouter.post(
+    '/shipping-order/:id/update-cod',
+    validate.updateCOD,
+    protect,
+    auth('staff', 'admin'),
+    asyncHandler(deliveryController.updateCOD),
+);
 export default deliveryRouter;

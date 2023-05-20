@@ -1,12 +1,12 @@
 import express from 'express';
 import asyncHandler from 'express-async-handler';
-import { protect, auth } from '../middleware/auth.middleware.js';
+import { protect, auth, getUserData } from '../middleware/auth.middleware.js';
 import discountCodeController from '../controllers/discountCode.controller.js';
 import validate from '../middleware/validate.middleware.js';
 
 const discountCodeRouter = express.Router();
 
-discountCodeRouter.get('/', asyncHandler(discountCodeController.getDiscountCode));
+discountCodeRouter.get('/', getUserData, asyncHandler(discountCodeController.getDiscountCode));
 
 discountCodeRouter.get(
     '/:id',

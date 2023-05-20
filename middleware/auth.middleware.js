@@ -33,6 +33,30 @@ const protect = asyncHandler(async (req, res, next) => {
     }
 });
 
+const getUserData = asyncHandler(async (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer')) {
+        try {
+            const token = authHeader.split(' ')[1];
+            const decoded = jwt.verify(token, process.env.ACCESS_JWT_SECRET);
+            const userId = decoded._id || null;
+            // const user = await User.findOne({ _id: userId, isVerified: true }).select('-password');
+            const verifyToken = await Token.findOne({ user: userId, accessToken: token }).populate({
+                path: 'user',
+                select: '-password',
+            });
+
+            if (verifyToken && verifyToken.user) {
+                req.user = verifyToken.user;
+            }
+            return next();
+        } catch (error) {
+            return next();
+        }
+    } else {
+        return next();
+    }
+});
 // const protect = asyncHandler(async (req, res, next) => {
 //     let token;
 //     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
@@ -64,4 +88,4 @@ const auth =
             throw new Error('Forbidden');
         }
     };
-export { protect, auth };
+export { protect, auth, getUserData };

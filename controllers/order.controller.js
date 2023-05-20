@@ -553,23 +553,26 @@ const createOrder = async (req, res, next) => {
 
             orderInfor.paymentInformation = createOrderPaymentInformation._id;
             //start cron-job
-            let scheduledJob = schedule.scheduleJob(`*/${PAYMENT_EXPIRY_TIME_IN_MINUTE} * * * *`, async () => {
-                console.log(`Đơn hàng "${orderInfor._id}" đã bị hủy `);
-                const foundOrder = await Order.findOne({
-                    _id: orderInfor._id,
-                }).populate('paymentInformation');
-                if (!foundOrder.paymentInformation.paid) {
-                    foundOrder.statusHistory.push({
-                        status: 'cancelled',
-                        description: 'Đơn hàng bị hủy do chưa được thanh toán',
-                    });
-                    if (foundOrder.status != 'cancelled') {
-                        foundOrder.status = 'cancelled';
-                        await foundOrder.save();
+            let scheduledJob = schedule.scheduleJob(
+                `*/${process.env.PAYMENT_EXPIRY_TIME_IN_MINUTE} * * * *`,
+                async () => {
+                    console.log(`Đơn hàng "${orderInfor._id}" đã bị hủy `);
+                    const foundOrder = await Order.findOne({
+                        _id: orderInfor._id,
+                    }).populate('paymentInformation');
+                    if (!foundOrder.paymentInformation.paid) {
+                        foundOrder.statusHistory.push({
+                            status: 'cancelled',
+                            description: 'Đơn hàng bị hủy do chưa được thanh toán',
+                        });
+                        if (foundOrder.status != 'cancelled') {
+                            foundOrder.status = 'cancelled';
+                            await foundOrder.save();
+                        }
                     }
-                }
-                scheduledJob.cancel();
-            });
+                    scheduledJob.cancel();
+                },
+            );
             await Cart.findOneAndUpdate(
                 { user: req.user._id },
                 { $pull: { cartItems: { variant: { $in: productCheckResult.orderItemIds } } } },
@@ -665,6 +668,10 @@ const confirmDelivery = async (req, res) => {
         default:
             break;
     }
+    let cod_amount = 0;
+    if (!order.paymentInformation.paid) {
+        cod_amount = -order.totalPayment;
+    }
     const config = {
         data: JSON.stringify({
             shop_id: Number(process.env.GHN_SHOP_ID),
@@ -678,7 +685,7 @@ const confirmDelivery = async (req, res) => {
             to_ward_name: order.delivery.to_ward_name,
             to_district_name: order.delivery.to_district_name,
             to_province_name: order.delivery.to_province_name,
-            cod_amount: order.totalPayment,
+            cod_amount: cod_amount,
             // content,
             weight: order.delivery.weight,
             length: order.delivery.length,

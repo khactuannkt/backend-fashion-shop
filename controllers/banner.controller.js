@@ -62,7 +62,10 @@ const updateBanner = async (req, res) => {
     if (!banner) {
         return res.status(404).json({ message: 'Banner không tồn tại' });
     }
-
+    if (banner.updatedVersion != updatedVersion) {
+        res.status(400);
+        throw new Error('Ảnh bìa vừa được cập nhật thông tin, vui lòng làm mới lại trang để lấy thông tin mới nhất');
+    }
     const { title, image, linkTo } = req.body;
     const imageFile = req.body.imageFile ? JSON.parse(req.body.imageFile) : '';
     let imageUrl = '';

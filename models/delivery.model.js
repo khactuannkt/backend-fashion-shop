@@ -81,7 +81,10 @@ const deliverySchema = mongoose.Schema(
             type: Number,
             default: 0,
         },
-
+        cod_amount: {
+            type: Number,
+            default: 0,
+        },
         insurance_value: {
             type: Number,
         },
