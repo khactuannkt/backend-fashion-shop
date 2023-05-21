@@ -12,15 +12,13 @@ import path from 'path';
 import routes from './routes/index.js';
 import multer from 'multer';
 import logger from './utils/logger.js';
-
 dotenv.config();
 connectDatabase();
 const app = express();
 app.use(express.static('public'));
 app.use(express.json());
 app.use(cors());
-// app.use(morgan('dev'));
-app.use(morgan('dev', { stream: logger.stream.write }));
+app.use(morgan('dev'));
 //handle route for api v1.0
 routes(app);
 

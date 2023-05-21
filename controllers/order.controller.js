@@ -46,7 +46,8 @@ const getOrdersByUserId = async (req, res) => {
         .populate(['delivery', 'paymentInformation'])
         .limit(limit)
         .skip(limit * page)
-        .sort({ createdAt: 'desc' });
+        .sort({ createdAt: 'desc' })
+        .lean();
     res.status(200).json({ data: { orders, page, pages: Math.ceil(count / limit), total: count } });
 };
 
@@ -57,7 +58,7 @@ const getOrderById = async (req, res) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-    const order = await Order.findById(req.params.id).populate(['delivery', 'paymentInformation']);
+    const order = await Order.findOne({ _id: req.params.id }).populate(['delivery', 'paymentInformation']).lean();
     if (!order) {
         res.status(404);
         throw new Error('Đơn hàng không tồn tại');
@@ -103,7 +104,9 @@ const checkOrderProductList = async (size, orderItems) => {
                 _id: orderItem.variant,
                 disabled: false,
                 deleted: false,
-            }).populate('product');
+            })
+                .populate('product')
+                .lean();
             if (!orderedVariant || !orderedVariant.product?._id) {
                 throw new Error(`Sản phẩm có ID "${orderItem.variant}" không tồn tại`);
             }
@@ -345,7 +348,9 @@ const createOrder = async (req, res, next) => {
                     },
                     { $inc: { quantity: -orderItem.quantity } },
                     { new: true },
-                ).session(session);
+                )
+                    .session(session)
+                    .lean();
                 if (!orderedVariant) {
                     await session.abortTransaction();
                     res.status(400);
@@ -354,7 +359,9 @@ const createOrder = async (req, res, next) => {
                 const orderedProduct = await Product.findOneAndUpdate(
                     { _id: orderedVariant.product, disabled: false, deleted: false },
                     { $inc: { totalSales: +orderItem.quantity, quantity: -orderItem.quantity } },
-                ).session(session);
+                )
+                    .session(session)
+                    .lean();
                 // await Promise.all([orderedVariant, orderedProduct]);
                 if (!orderedProduct) {
                     await session.abortTransaction();
@@ -396,7 +403,7 @@ const createOrder = async (req, res, next) => {
             //Check discount code
             if (discountCode) {
                 const code = String(discountCode) || '';
-                const discountCodeExist = await DiscountCode.findOne({ code: code, disabled: false });
+                const discountCodeExist = await DiscountCode.findOne({ code: code, disabled: false }).lean();
                 if (!discountCodeExist) {
                     await session.abortTransaction();
                     res.status(400);
@@ -511,6 +518,7 @@ const createOrder = async (req, res, next) => {
 
             if (newPaymentInformation.paymentMethod == PAYMENT_WITH_MOMO) {
                 //Create payment information with momo
+                const amount = Number(orderInfor.totalPayment).toFixed();
                 const redirectUrl = `${process.env.CLIENT_PAGE_URL}/order/${orderInfor._id}/waiting-payment`;
                 const ipnUrl = `${process.env.API_URL}/api/v1/orders/${orderInfor._id}/payment-notification`;
                 const requestId = uuidv4();
@@ -518,7 +526,7 @@ const createOrder = async (req, res, next) => {
                     orderInfor._id,
                     requestId,
                     'Thanh toán đơn hàng tại Fashion Shop',
-                    orderInfor.totalPayment,
+                    amount,
                     redirectUrl,
                     ipnUrl,
                 );
@@ -576,7 +584,9 @@ const createOrder = async (req, res, next) => {
             await Cart.findOneAndUpdate(
                 { user: req.user._id },
                 { $pull: { cartItems: { variant: { $in: productCheckResult.orderItemIds } } } },
-            ).session(session);
+            )
+                .session(session)
+                .lean();
             const newOrder = await (await orderInfor.save({ session })).populate(['delivery', 'paymentInformation']);
 
             if (!newOrder) {
@@ -644,7 +654,7 @@ const confirmDelivery = async (req, res) => {
     const orderId = req.params.id;
     const description = req.body.description?.toString().trim() || '';
     const required_note = req.body.requiredNote || null;
-    const order = await Order.findOne({ _id: orderId, disabled: false }).populate('delivery');
+    const order = await Order.findOne({ _id: orderId, disabled: false }).populate(['delivery', 'paymentInformation']);
     if (!order) {
         res.status(404);
         throw new Error('Đơn hàng không tồn tại!');
@@ -670,15 +680,20 @@ const confirmDelivery = async (req, res) => {
     }
     let cod_amount = 0;
     if (!order.paymentInformation.paid) {
+        if (order.paymentInformation.paymentMethod == PAYMENT_WITH_MOMO) {
+            res.status(400);
+            throw new Error('Đơn hàng có phương thức thanh toán là MoMo nhưng khách hàng chưa thành toán');
+        }
         cod_amount = order.totalPayment;
     }
+
     const config = {
         data: JSON.stringify({
             shop_id: Number(process.env.GHN_SHOP_ID),
             payment_type_id: 1,
             note: order.delivery.note || '',
             required_note: required_note || order.delivery.required_note,
-            client_order_code: order.user,
+            client_order_code: Math.round(Math.random() * 1000000000).toString(),
             to_name: order.delivery.to_name,
             to_phone: order.delivery.to_phone,
             to_address: order.delivery.to_address,
@@ -686,7 +701,6 @@ const confirmDelivery = async (req, res) => {
             to_district_name: order.delivery.to_district_name,
             to_province_name: order.delivery.to_province_name,
             cod_amount: cod_amount,
-            // content,
             weight: order.delivery.weight,
             length: order.delivery.length,
             width: order.delivery.width,
@@ -699,6 +713,7 @@ const confirmDelivery = async (req, res) => {
     };
     const deliveryInfo = await GHN_Request.get('v2/shipping-order/create', config)
         .then((response) => {
+            console.log(response.data.data);
             return response.data.data;
         })
         .catch((error) => {
@@ -842,34 +857,6 @@ const orderPaymentNotification = async (req, res) => {
     }
 };
 
-const userPaymentOrder = async (req, res) => {
-    // Validate the request data using express-validator
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        const message = errors.array()[0].msg;
-        return res.status(400).json({ message: message });
-    }
-    const orderId = req.params.id;
-    const order = await Order.findOne({ _id: orderId, user: req.user._id, disabled: false }).populate(
-        'paymentInformation',
-    );
-    if (!order) {
-        res.status(404);
-        throw new Error('Đơn hàng không tồn tại!');
-    }
-    if (order.paymentInformation.paid === true) {
-        res.status(400);
-        throw new Error('Đơn hàng đã hoàn thành việc thanh toán');
-    }
-    if (order.paymentInformation.paymentMethod == 'payment-with-momo') {
-        const payUrl = order.paymentInformation.payUrl;
-        res.status(200).json({ data: { payUrl } });
-    } else {
-        res.status(400);
-        throw new Error('Đơn hàng có phương thức thanh toán không phải là thanh toán online');
-    }
-};
-
 const getOrderPaymentStatus = async (req, res) => {
     const orderId = req.params.id;
     const order = await Order.findOne({ _id: orderId, disabled: false }).populate('paymentInformation');
@@ -979,8 +966,6 @@ const cancelOrder = async (req, res, next) => {
         res.status(404);
         throw new Error('Đơn hàng không tồn tại');
     }
-    console.log(typeof req.user._id);
-    console.log(typeof order.user);
     if (req.user.role == 'admin' || req.user.role == 'staff') {
         switch (order.status) {
             case 'delivered':
@@ -1031,18 +1016,16 @@ const cancelOrder = async (req, res, next) => {
                 const updateProduct = await Product.findOneAndUpdate(
                     { _id: orderItem.product },
                     { $inc: { totalSales: -orderItem.quantity, quantity: +orderItem.quantity } },
-                ).session(session);
+                )
+                    .session(session)
+                    .lean();
                 const updateVariant = await Variant.findOneAndUpdate(
                     { product: orderItem.product._id, attributes: orderItem.attributes },
                     { $inc: { quantity: +orderItem.quantity } },
                     { new: true },
-                ).session(session);
-                // await Promise.all([updateProduct, updateVariant]).catch(async (error) => {
-                //     console.log(error);
-                //     await session.abortTransaction();
-                //     res.status(502);
-                //     throw new Error('Gặp lỗi khi hủy đơn hàng');
-                // });
+                )
+                    .session(session)
+                    .lean();
             });
             await Promise.all(updateOrderItems);
             if (order.status == 'delivering' && order.delivery.deliveryCode) {
@@ -1090,13 +1073,11 @@ const orderController = {
     getOrderById,
     getOrders,
     createOrder,
-    // placeOrder,
     confirmOrder,
     confirmDelivery,
     confirmDelivered,
     confirmReceived,
     orderPaymentNotification,
-    userPaymentOrder,
     adminPaymentOrder,
     cancelOrder,
     getOrderPaymentStatus,

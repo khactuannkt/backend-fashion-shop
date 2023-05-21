@@ -56,7 +56,7 @@ export const htmlMailVerify = (
                                                                 letter-spacing: 0;
                                                             "
                                                         >
-                                                            WELCOME TO FASHION SHOP
+                                                            CHÀO MỪNG BẠN ĐẾN VỚI FASHION SHOP
                                                         </h2>
                                                         <h4
                                                             style="
@@ -68,7 +68,7 @@ export const htmlMailVerify = (
                                                                 letter-spacing: 0;
                                                             "
                                                         >
-                                                            Email Address Verification
+                                                            Xác minh Email
                                                         </h4>
                                                         <div 
                                                             style="display: flex; justify-content: center !important; margin: 36px 0px; "
@@ -122,7 +122,7 @@ export const htmlMailVerify = (
                                                                                     letter-spacing: normal;
                                                                                 "
                                                                             >
-                                                                                Verify Email
+                                                                                Xác minh Email
                                                                             </div></a
                                                                         >
                                                                     </td>
@@ -138,21 +138,20 @@ export const htmlMailVerify = (
                                                                 margin: 36px 32px 33px;
                                                             "
                                                         >
-                                                            Secure your account by verifying your email address.
+                                                        Bảo mật tài khoản của bạn bằng cách xác minh địa chỉ email của bạn.
                                                             <br />
                                                             <br />
                                                             <b
-                                                                >This link will expire after 2 hours. To request another
-                                                                verification<br />
-                                                                link, please
+                                                                >Liên kết này sẽ hết hạn sau 2 giờ. Để yêu cầu một liên kết xác minh<br />
+                                                                khác, vui lòng
                                                                 <a
                                                                     href="${process.env.CLIENT_PAGE_URL}/login"
                                                                     style="text-decoration: none; color: #007cad"
                                                                     target="_blank"
                                                                     data-saferedirecturl="${process.env.CLIENT_PAGE_URL}/login"
-                                                                    >log in</a
+                                                                    >Đăng nhập</a
                                                                 >
-                                                                to prompt a re-send link.
+                                                                để nhắc gửi lại liên kết.
                                                             </b>
                                                         </p>
                                                     </td>
@@ -168,7 +167,7 @@ export const htmlMailVerify = (
                                                                 font-size: 12px;
                                                                 color: #cccccc;
                                                             "
-                                                            >This message was sent from Fashion shop</span
+                                                            >Thư này được gửi từ Fashion shop</span
                                                         >
                                                     </td>
                                                 </tr>
@@ -221,22 +220,20 @@ export const htmlResetEmail = ({ link, email, urlLogo }) =>
                   </div>
 
                   <div style="margin-bottom: 15px">
-                      <h3 style="margin-bottom: 15px">RESET PASSWORD</h3>
+                      <h3 style="margin-bottom: 15px">ĐẶT LẠI MẬT KHẨU</h3>
                       <div>
-                          A password reset event has been triggered. The password reset window is limited to two hours.
-                          If
+                          Yêu cầu đặt lại mật khẩu đã được tiếp nhận. Cửa sổ đặt lại mật khẩu được giới hạn trong 2 giờ.
                       </div>
                       <div>
-                          you do not reset your password within two hours, you will need to submit a new request. To
+                      Nếu bạn không đặt lại mật khẩu của mình trong vòng hai giờ, bạn sẽ cần gửi yêu cầu mới.
                       </div>
-                      <div>complete the password reset process, visit the following link:</div>
-
+                      <div> Để hoàn tất quá trình đặt lại mật khẩu, hãy truy cập liên kết sau:</div>
                       <div>${link}</div>
                   </div>
                   <div style="margin-bottom: 15px">User: ${email}</div>
 
                   <div style="margin-bottom: 15px; width: 100%; justify-content: center; display: flex">
-                      <p>This message was sent from Fashion shop</p>
+                      <p>Thư này được gửi từ Fashion shop</p>
                   </div>
               </div>
           </div>
