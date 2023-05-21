@@ -5,13 +5,14 @@ import { validationResult } from 'express-validator';
 import { ObjectId } from 'mongodb';
 
 const getBanners = async (req, res) => {
-    const banners = await Banner.find({ type: 'banner' }).sort({ _id: -1 });
-    const sliders = await Banner.find({ type: 'slider' }).sort({ _id: -1 });
+    const getBanners = Banner.find({ type: 'banner' }).sort({ _id: -1 }).lean();
+    const getSliders = Banner.find({ type: 'slider' }).sort({ _id: -1 }).lean();
+    const [banners, sliders] = await Promise.all([getBanners, getSliders]);
     return res.status(200).json({ message: 'Success', data: { banners, sliders } });
 };
 
 const getBannerById = async (req, res) => {
-    const banner = await Banner.findOne({ _id: req.params.id });
+    const banner = await Banner.findOne({ _id: req.params.id }).lean();
     if (!banner) {
         res.status(404);
         throw new Error('Banner không tồn tại');
@@ -66,6 +67,7 @@ const updateBanner = async (req, res) => {
         res.status(400);
         throw new Error('Ảnh bìa vừa được cập nhật thông tin, vui lòng làm mới lại trang để lấy thông tin mới nhất');
     }
+    banner.updatedVersion = Number(banner.updatedVersion) + 1;
     const { title, image, linkTo } = req.body;
     const imageFile = req.body.imageFile ? JSON.parse(req.body.imageFile) : '';
     let imageUrl = '';
@@ -106,7 +108,7 @@ const deleteBanner = async (req, res) => {
         res.status(400);
         throw new Error('ID không hợp lệ');
     }
-    const deletedBanner = await Banner.findByIdAndDelete(req.params.id);
+    const deletedBanner = await Banner.findByIdAndDelete(req.params.id).lean();
     if (!deletedBanner) {
         res.status(404);
         throw new Error('Banner không tồn tại');

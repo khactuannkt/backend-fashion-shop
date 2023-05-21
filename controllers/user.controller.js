@@ -15,8 +15,8 @@ import jwt from 'jsonwebtoken';
 dotenv.config();
 
 const getUsersByAdmin = async (req, res) => {
-    const users = await User.find();
-    res.status(200).json({ message: 'Success', data: { users } }).lean();
+    const users = await User.find().lean();
+    res.status(200).json({ message: 'Success', data: { users } });
 };
 
 const login = async (req, res) => {
@@ -535,11 +535,11 @@ const removeUserAddress = async (req, res) => {
     res.status(200).json({ message: 'Xóa địa chỉ thành công', data: { addressList: req.user.address } });
 };
 const getUserDiscountCode = async (req, res) => {
-    const discountCodeList = await DiscountCode.find({ _id: { $in: [...req.user.discountCode] } }).lean();
+    await req.user.populate('discountCode');
     res.json({
         message: 'Success',
         data: {
-            discountCodeList,
+            discountCodeList: req.user.discountCode,
         },
     });
 };
@@ -551,7 +551,7 @@ const addUserDiscountCode = async (req, res) => {
         return res.status(400).json({ message: message });
     }
     const code = req.body.discountCode;
-    const existedDiscountCode = await DiscountCode.findOne({ code: code, disabled: false });
+    const existedDiscountCode = await DiscountCode.findOne({ code: code, disabled: false }).lean();
     if (!existedDiscountCode) {
         res.status(404);
         throw new Error('Mã giảm giá không tồn tại');
@@ -570,11 +570,12 @@ const addUserDiscountCode = async (req, res) => {
     }
     req.user.discountCode.push(existedDiscountCode._id);
     await req.user.save();
-    const user = await User.findById(req.user._id).populate('discountCode');
+    await req.user.populate('discountCode');
+    // const user = await User.findById(req.user._id).populate('discountCode');
     res.status(201).json({
         message: 'Success',
         data: {
-            discountCodeList: user.discountCode || [],
+            discountCodeList: req.user.discountCode || [],
         },
     });
 };

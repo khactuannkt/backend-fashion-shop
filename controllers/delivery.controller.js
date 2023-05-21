@@ -248,7 +248,7 @@ const printOrder = async (req, res) => {
         res.status(400);
         throw new Error('Kích thước giấy in không hợp lệ');
     }
-    const order = await Order.findOne({ _id: orderId, disabled: false }).populate('delivery');
+    const order = await Order.findOne({ _id: orderId, disabled: false }).populate('delivery').lean();
     if (!order) {
         res.status(400);
         throw new Error('Đơn hàng không tồn tại');

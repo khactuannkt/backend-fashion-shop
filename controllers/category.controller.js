@@ -13,26 +13,22 @@ const getCategories = async (req, res) => {
     if (level) {
         filter.level = level;
     }
-    const categories = await Category.find(filter).sort({ _id: -1 });
+    const categories = await Category.find(filter).sort({ _id: -1 }).lean();
     return res.json({ message: 'Success', data: { categories } });
 };
 const getCategoryTree = async (req, res) => {
-    const categories = await Category.find({ level: 1 }).populate('children').sort({ _id: -1 });
+    const categories = await Category.find({ level: 1 }).populate('children').sort({ _id: -1 }).lean();
     return res.json({ message: 'Success', data: { categories } });
 };
 const getCategoryById = async (req, res) => {
-    const categoryId = req.params.id || null;
-    if (!ObjectId.isValid(categoryId)) {
-        res.status(400);
-        throw new Error('ID is not valid');
-    }
-    const category = await Category.findById(categoryId).populate('children', 'parent');
-    if (category) {
-        return res.json({ message: 'Success', data: { category: category } });
-    } else {
+    const categoryId = req.params.id || '';
+
+    const category = await Category.findOne({ _id: categoryId }).populate('children', 'parent').lean();
+    if (!category) {
         res.status(404);
         throw new Error('Danh mục không tồn tại');
     }
+    return res.json({ message: 'Success', data: { category: category } });
 };
 const createCategory = async (req, res, next) => {
     // Validate the request data using express-validator
@@ -44,7 +40,7 @@ const createCategory = async (req, res, next) => {
     const { name, level, parent, description } = req.body;
     const children = req.body.children ? JSON.parse(req.body.children) : [];
     const imageFile = req.body.imageFile ? JSON.parse(req.body.imageFile) : '';
-    const categoryExists = await Category.findOne({ name: name.trim() });
+    const categoryExists = await Category.exists({ name: name.trim() });
     if (categoryExists) {
         res.status(400);
         throw new Error('Danh mục đã tồn tại');
@@ -52,7 +48,7 @@ const createCategory = async (req, res, next) => {
 
     //generate slug
     let generatedSlug = slug(name);
-    const existSlug = await Category.findOne({ slug: generatedSlug });
+    const existSlug = await Category.exists({ slug: generatedSlug });
     if (existSlug) {
         generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
     }
@@ -79,12 +75,8 @@ const createCategory = async (req, res, next) => {
                     res.status(400);
                     throw new Error('Nếu danh mục có cấp độ lớn hơn 1 thì phải chọn danh mục mẹ');
                 }
-                if (!ObjectId.isValid(parent)) {
-                    await session.abortTransaction();
-                    res.status(400);
-                    throw new Error('ID danh mục mẹ không hợp lệ');
-                }
-                parentCategory = await Category.findById(parent);
+
+                parentCategory = await Category.findOne({ _id: parent });
                 if (!parentCategory) {
                     await session.abortTransaction();
                     res.status(404);
@@ -101,13 +93,11 @@ const createCategory = async (req, res, next) => {
                 category.parent = category._id;
             }
 
-            let childrenCategory = [];
-
             if (children && children.length > 0) {
                 let childrenCategory = [];
                 await Promise.all(
                     children.map(async (item) => {
-                        const childrenCategoryExists = await Category.findOne({ name: item.name.trim() });
+                        const childrenCategoryExists = await Category.exists({ name: item.name.trim() });
                         if (childrenCategoryExists) {
                             await session.abortTransaction();
                             res.status(400);
@@ -115,7 +105,7 @@ const createCategory = async (req, res, next) => {
                         }
                         //generate slug
                         let generatedSlug = slug(item.name);
-                        const existSlug = await Category.findOne({ slug: generatedSlug });
+                        const existSlug = await Category.exists({ slug: generatedSlug });
                         if (existSlug) {
                             generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
                         }
@@ -181,17 +171,17 @@ const updateCategory = async (req, res, next) => {
         throw new Error('Danh mục vừa được cập nhật thông tin, vui lòng làm mới lại trang để lấy thông tin mới nhất');
     }
     currentCategory.updatedVersion = Number(currentCategory.updatedVersion) + 1;
-    if (currentCategory.name !== name) {
+    if (currentCategory.name != name.trim()) {
         //check the existence of the category
-        const categoryExists = await Category.findOne({ name: name.trim() });
-        if (categoryExists && categoryExists.name != currentCategory.name) {
+        const categoryExists = await Category.exists({ name: name.trim() });
+        if (categoryExists) {
             res.status(400);
             throw new Error('Danh mục đã tồn tại');
         }
         currentCategory.name = name.trim();
         //generate slug
         let generatedSlug = slug(name);
-        const existSlug = await Category.findOne({ slug: generatedSlug });
+        const existSlug = await Category.exists({ slug: generatedSlug });
         if (existSlug) {
             generatedSlug = generatedSlug + '-' + Math.round(Math.random() * 10000).toString();
         }
@@ -202,7 +192,7 @@ const updateCategory = async (req, res, next) => {
         currentCategory.level = level || currentCategory.level;
 
         // check parent category
-        newParentCat = await Category.findById(parent);
+        newParentCat = await Category.findOne({ _id: parent });
         if (!newParentCat) {
             res.status(404);
             throw new Error('Danh mục mẹ không tồn tại');
@@ -228,7 +218,7 @@ const updateCategory = async (req, res, next) => {
             if (newParentCat._id.toString() != currentCategory._id.toString()) {
                 newParentCat.children.push(currentCategory._id);
             }
-            currentCategory.parent = newParentCat._id || currentCategory.parent;
+            currentCategory.parent = newParentCat._id;
         }
     }
 
@@ -276,7 +266,7 @@ const deleteCategory = async (req, res) => {
         throw new Error('Danh mục danh tồn tại danh mục con. không thể xóa được');
     }
 
-    const categoryInProduct = await Product.findOne({ category: category._id });
+    const categoryInProduct = await Product.exists({ category: category._id });
     if (categoryInProduct) {
         res.status(400);
         throw new Error('Đang tồn tại sản phẩm có thể loại là danh mục này. không thể xóa được');

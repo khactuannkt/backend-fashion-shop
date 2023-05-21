@@ -286,7 +286,7 @@ const getAllProductsByAdmin = async (req, res) => {
 
 const getProductBySlug = async (req, res) => {
     const slug = req.params.slug.toString().trim() || '';
-    const product = await Product.findOne({ slug: slug }).populate('variants').lean();
+    const product = await Product.findOne({ slug: slug }).populate(['variants', 'category']).lean();
     if (!product) {
         res.status(404);
         throw new Error('Sản phẩm không tồn tại');
@@ -301,7 +301,7 @@ const getProductById = async (req, res) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-    const product = await Product.findOne({ _id: req.params.id }).populate('variants').lean();
+    const product = await Product.findOne({ _id: req.params.id }).populate(['variants', 'category']).lean();
     if (!product) {
         res.status(404);
         throw new Error('Sản phẩm không tồn tại');
@@ -465,7 +465,7 @@ const updateProduct = async (req, res, next) => {
         return res.status(400).json({ message: message });
     }
 
-    const { name, description, category, brand, weight, length, height, width } = req.body;
+    const { name, description, category, brand, weight, length, height, width, updatedVersion } = req.body;
 
     const variants = JSON.parse(req.body.variants) || [];
     const keywords = JSON.parse(req.body.keywords) || [];
@@ -503,6 +503,7 @@ const updateProduct = async (req, res, next) => {
         res.status(400);
         throw new Error('Sản phẩm vừa được cập nhật thông tin, vui lòng làm mới lại trang để lấy thông tin mới nhất');
     }
+    currentProduct.updatedVersion = Number(currentProduct.updatedVersion) + 1;
     const session = await mongoose.startSession();
     const transactionOptions = {
         readPreference: 'primary',

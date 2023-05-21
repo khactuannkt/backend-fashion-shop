@@ -22,7 +22,6 @@ const getDiscountCode = async (req, res) => {
         .sort({ _id: -1 })
         .lean();
     const discountCodes = discountCode.map((discount) => {
-        console.log(req.user.discountCode);
         if (req.user && req.user.discountCode.includes(discount._id)) {
             discount.isAdd = true;
         } else {
@@ -34,12 +33,9 @@ const getDiscountCode = async (req, res) => {
 };
 
 const getDiscountCodeById = async (req, res) => {
-    const discountCodeId = req.params.id || null;
-    if (!ObjectId.isValid(discountCodeId)) {
-        res.status(400);
-        throw new Error('ID mã giảm giá không hợp lệ');
-    }
-    const discountCode = await DiscountCode.findOne({ _id: discountCodeId });
+    const discountCodeId = req.params.id || '';
+
+    const discountCode = await DiscountCode.findOne({ _id: discountCodeId }).lean();
     if (!discountCode) {
         res.status(404);
         throw new Error('Mã giảm giá không tồn tại');
@@ -47,8 +43,8 @@ const getDiscountCodeById = async (req, res) => {
     return res.status(200).json({ message: 'Success', data: { discountCode: discountCode } });
 };
 const getDiscountCodeByCode = async (req, res) => {
-    const code = req.params.code || null;
-    const discountCode = await DiscountCode.findOne({ code: code });
+    const code = req.params.code || '';
+    const discountCode = await DiscountCode.findOne({ code: code }).lean();
     if (!discountCode) {
         res.status(404);
         throw new Error('Mã giảm giá không tồn tại');
@@ -76,7 +72,7 @@ const createDiscountCode = async (req, res) => {
         applyFor,
         applicableProducts,
     } = req.body;
-    const discountCodeExists = await DiscountCode.findOne({ code: code });
+    const discountCodeExists = await DiscountCode.exists({ code: code });
     if (discountCodeExists) {
         res.status(400);
         throw new Error('Mã giảm giá đã tồn tại');
@@ -126,22 +122,21 @@ const updateDiscountCode = async (req, res) => {
     } = req.body;
     // Check id
     const discountCodeId = req.params.id || null;
-    if (!ObjectId.isValid(discountCodeId)) {
-        res.status(400);
-        throw new Error('ID Mã giảm giá không hợp lệ');
-    }
-    const currentDiscountCode = await DiscountCode.findById(discountCodeId);
+
+    const currentDiscountCode = await DiscountCode.findOne({ _id: discountCodeId });
     if (!currentDiscountCode) {
         return res.status(404).json({ message: 'Mã giảm giá không tồn tại' });
     }
-    const discountCodeExists = await DiscountCode.findOne({ code: code });
-    if (discountCodeExists && discountCodeExists._id.toString() !== currentDiscountCode._id.toString()) {
-        res.status(400);
-        throw new Error('Mã giảm giá đã tồn tại');
+    if (currentDiscountCode.code != code) {
+        const discountCodeExists = await DiscountCode.exists({ code: code });
+        if (discountCodeExists) {
+            res.status(400);
+            throw new Error('Mã giảm giá đã tồn tại');
+        }
+        currentDiscountCode.code = code;
     }
 
     currentDiscountCode.name = name || currentDiscountCode.name;
-    currentDiscountCode.code = code || currentDiscountCode.code;
     currentDiscountCode.discountType = discountType || currentDiscountCode.discountType;
 
     currentDiscountCode.discount = discount || currentDiscountCode.discount;

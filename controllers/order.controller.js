@@ -84,9 +84,9 @@ const getOrders = async (req, res) => {
         .populate(['delivery', 'paymentInformation'])
         .limit(limit)
         .skip(limit * page)
-        .sort({ ...sortBy });
-    res.status(200);
-    res.json({ data: { orders, page, pages: Math.ceil(count / limit), total: count } });
+        .sort({ ...sortBy })
+        .lean();
+    res.status(200).json({ data: { orders, page, pages: Math.ceil(count / limit), total: count } });
 };
 
 const checkOrderProductList = async (size, orderItems) => {
@@ -670,7 +670,7 @@ const confirmDelivery = async (req, res) => {
     }
     let cod_amount = 0;
     if (!order.paymentInformation.paid) {
-        cod_amount = -order.totalPayment;
+        cod_amount = order.totalPayment;
     }
     const config = {
         data: JSON.stringify({
