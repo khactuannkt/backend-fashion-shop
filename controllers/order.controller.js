@@ -104,9 +104,7 @@ const checkOrderProductList = async (size, orderItems) => {
                 _id: orderItem.variant,
                 disabled: false,
                 deleted: false,
-            })
-                .populate('product')
-                .lean();
+            }).populate('product');
             if (!orderedVariant || !orderedVariant.product?._id) {
                 throw new Error(`Sản phẩm có ID "${orderItem.variant}" không tồn tại`);
             }
@@ -152,7 +150,7 @@ const calculateFee = async (shippingAddress, size, price) => {
     const config = {
         data: JSON.stringify({
             shop_id: Number(process.env.GHN_SHOP_ID),
-            service_id: 53320,
+            service_id: Number(shippingAddress.service_id),
             to_district_id: Number(shippingAddress.to_district_id),
             to_ward_code: String(shippingAddress.to_ward_code),
             height: size.height,
@@ -185,8 +183,8 @@ const estimatedDeliveryTime = async (shippingAddress) => {
     const config = {
         data: JSON.stringify({
             shop_id: Number(process.env.GHN_SHOP_ID),
-            service_id: 53320,
-            to_district_id: shippingAddress.to_district_id,
+            service_id: Number(shippingAddress.service_id),
+            to_district_id: Number(shippingAddress.to_district_id),
             to_ward_code: String(shippingAddress.to_ward_code),
         }),
     };
@@ -403,7 +401,7 @@ const createOrder = async (req, res, next) => {
             //Check discount code
             if (discountCode) {
                 const code = String(discountCode) || '';
-                const discountCodeExist = await DiscountCode.findOne({ code: code, disabled: false }).lean();
+                const discountCodeExist = await DiscountCode.findOne({ code: code, disabled: false });
                 if (!discountCodeExist) {
                     await session.abortTransaction();
                     res.status(400);
@@ -475,9 +473,11 @@ const createOrder = async (req, res, next) => {
                 orderInfor.totalPayment = 0;
             }
             let leadTime = new Date(leadTimeResult.leadTime * 1000);
+
             if (leadTime == 'Invalid Date') {
                 leadTime = null;
             }
+            leadTime = leadTime.setDate(leadTime.getDate() + 1);
             const newShippingInfor = new Delivery({
                 order: orderInfor._id,
                 client: req.user._id,
@@ -491,7 +491,7 @@ const createOrder = async (req, res, next) => {
                 to_ward_code: address.to_ward_code,
                 to_address: address.to_address,
                 note: note || '',
-                service_id: 53320,
+                service_id: Number(shippingAddress.service_id),
                 items: orderInfor.orderItems,
                 deliveryFee: deliveryFee.fee,
                 leadTime: leadTime,
@@ -713,7 +713,6 @@ const confirmDelivery = async (req, res) => {
     };
     const deliveryInfo = await GHN_Request.get('v2/shipping-order/create', config)
         .then((response) => {
-            console.log(response.data.data);
             return response.data.data;
         })
         .catch((error) => {
@@ -822,7 +821,6 @@ const orderPaymentNotification = async (req, res) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
-    console.log(JSON.stringify(req.body));
     const orderId = req.body.orderId?.toString().trim() || '';
     if (!orderId) {
         res.status(400);
@@ -913,7 +911,6 @@ const refundTrans = async (req, res) => {
     const result = await momo_Request
         .post('/refund', requestBody, config)
         .then((response) => {
-            console.log(response);
             res.status(200).json(response.data);
         })
         .catch(async (error) => {
@@ -1040,7 +1037,6 @@ const cancelOrder = async (req, res, next) => {
                         return response.data.data;
                     })
                     .catch((error) => {
-                        console.log(error.response);
                         res.status(error.response.data.code || 502);
                         throw new Error(error.response.data.message || error.message || null);
                     });

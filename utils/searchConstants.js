@@ -62,6 +62,38 @@ const orderQueryParams = {
         default: {},
     },
 };
+const deliveryQueryParams = {
+    sort: {
+        newest: { createdAt: 'desc' },
+        latest: { createdAt: 'asc' },
+        default: { createdAt: 'desc' },
+    },
+    status: {
+        ready_to_pick: { status: 'ready_to_pick' },
+        picking: { status: 'picking' },
+        cancel: { status: 'cancel' },
+        money_collect_picking: { status: 'money_collect_picking' },
+        picked: { status: 'picked' },
+        storing: { status: 'storing' },
+        transporting: { status: 'transporting' },
+        sorting: { status: 'sorting' },
+        delivering: { status: 'delivering' },
+        money_collect_delivering: { status: 'money_collect_delivering' },
+        delivered: { status: 'delivered' },
+        delivery_fail: { status: 'delivery_fail' },
+        waiting_to_return: { status: 'waiting_to_return' },
+        return: { status: 'return' },
+        return_transporting: { status: 'return_transporting' },
+        return_sorting: { status: 'return_sorting' },
+        returning: { status: 'returning' },
+        return_fail: { status: 'return_fail' },
+        returned: { status: 'returned' },
+        exception: { status: 'exception' },
+        damage: { status: 'damage' },
+        lost: { status: 'lost' },
+        default: {},
+    },
+};
 
 const userQueryParams = {
     date: {
@@ -91,19 +123,19 @@ const categoryQueryParams = {
     },
 };
 
-const producerQueryParams = {
-    date: {
-        newest: { createdAt: 'desc' },
-        latest: { createdAt: 'asc' },
-        default: { createdAt: 'desc' },
-    },
-    status: {
-        disabled: { isDisabled: true },
-        notDisabled: { isDisabled: false },
-        all: {},
-        default: { isDisabled: false },
-    },
-};
+// const producerQueryParams = {
+//     date: {
+//         newest: { createdAt: 'desc' },
+//         latest: { createdAt: 'asc' },
+//         default: { createdAt: 'desc' },
+//     },
+//     status: {
+//         disabled: { isDisabled: true },
+//         notDisabled: { isDisabled: false },
+//         all: {},
+//         default: { isDisabled: false },
+//     },
+// };
 
 const validateConstants = function (reference, constant, constantField) {
     constantField = constantField ? constantField.toString().trim().toLowerCase() : '';
@@ -139,7 +171,8 @@ export {
     orderQueryParams,
     userQueryParams,
     categoryQueryParams,
-    producerQueryParams,
+    // producerQueryParams,
+    deliveryQueryParams,
     validateConstants,
     priceRangeFilter,
     ratingFilter,

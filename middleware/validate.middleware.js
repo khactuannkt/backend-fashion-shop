@@ -730,6 +730,9 @@ const validate = {
                 if (!shippingAddress.to_phone || shippingAddress.to_phone.toString().trim() === '') {
                     throw new Error('Số điện thoại người nhận không được để trống');
                 }
+                if (!shippingAddress.service_id || shippingAddress.service_id.toString().trim() === '') {
+                    throw new Error('Dịch vụ giao hàng không được để trống');
+                }
                 if (!shippingAddress.to_province_id || shippingAddress.to_province_id.toString().trim() === '') {
                     throw new Error('Tỉnh/Thành phố không được để trống');
                 }
@@ -941,18 +944,18 @@ const validate = {
             return true;
         }),
     ],
-    services: [
-        // check('from_district_id')
-        //     .notEmpty()
-        //     .withMessage('Mã quận/huyện của người nhận hàng không được để trống')
-        //     .isInt()
-        //     .withMessage('Mã quận/huyện của người nhận phải là số nguyên'),
-        check('to_district')
-            .notEmpty()
-            .withMessage('Mã quận/huyện của người nhận hàng không được để trống')
-            .isInt()
-            .withMessage('Mã quận/huyện của người nhận phải là số nguyên'),
-    ],
+    // services: [
+    //     check('from_district_id')
+    //         .notEmpty()
+    //         .withMessage('Mã quận/huyện của người nhận hàng không được để trống')
+    //         .isInt()
+    //         .withMessage('Mã quận/huyện của người nhận phải là số nguyên'),
+    //     check('to_district')
+    //         .notEmpty()
+    //         .withMessage('Mã quận/huyện của người nhận hàng không được để trống')
+    //         .isInt()
+    //         .withMessage('Mã quận/huyện của người nhận phải là số nguyên'),
+    // ],
     estimatedDeliveryTime: [
         check('service_id')
             .notEmpty()

@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import DiscountCode from '../models/discountCode.model.js';
 import Variant from '../models/variant.model.js';
-import { cloudinaryUpload, cloudinaryRemove } from '../utils/cloudinary.js';
 import { validationResult } from 'express-validator';
 import { ObjectId } from 'mongodb';
 import User from '../models/user.model.js';
@@ -21,14 +20,21 @@ const getDiscountCode = async (req, res) => {
     const discountCode = await DiscountCode.find({ ...keyword, disabled: false })
         .sort({ _id: -1 })
         .lean();
-    const discountCodes = discountCode.map((discount) => {
-        if (req.user && req.user.discountCode.includes(discount._id)) {
-            discount.isAdd = true;
-        } else {
-            discount.isAdd = false;
-        }
-        return discount;
-    });
+    let discountCodes = discountCode;
+    if (req.user && req.user.role == 'user') {
+        discountCodes = [];
+        discountCode.map((discount) => {
+            if (discount.endDate >= new Date()) {
+                if (req.user && req.user.discountCode.includes(discount._id)) {
+                    discount.isAdd = true;
+                } else {
+                    discount.isAdd = false;
+                }
+                discountCodes.push(discount);
+            }
+        });
+    }
+
     return res.status(200).json({ message: 'Success', data: { discountCode: discountCodes } });
 };
 

@@ -46,7 +46,6 @@ const getProducts = async (req, res) => {
               ],
           }
         : {};
-
     //Check if category existed
     let categoryName = req.query.category || null;
     let categoryIds = [];
@@ -200,8 +199,8 @@ const getProductSearchResults = async (req, res) => {
     const productFilter = {
         ...keyword,
     };
-    const products = await Product.find(productFilter).limit(limit).select('name').lean();
-    res.status(200).json({ message: 'Success', data: { products } });
+    const keywords = await Product.find(productFilter).limit(limit).select('name').lean();
+    res.status(200).json({ message: 'Success', data: { keywords } });
 };
 const getProductRecommend = async (req, res) => {
     const limit = parseInt(req.query.limit) || 12;
