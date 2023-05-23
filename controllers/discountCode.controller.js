@@ -189,9 +189,17 @@ const discountCalculation = async (req, res) => {
         res.status(400);
         throw new Error('Mã giảm giá đã được sử dụng hết');
     }
-    if (discountCodeExist.usedBy.includes(req.user._id)) {
+    if (discountCodeExist.userUseMaximum > 1) {
+        const countUser = discountCodeExist.usedBy.filter((item) => {
+            return item.toString() == req.user._id.toString();
+        });
+        if (countUser.length >= discountCodeExist.userUseMaximum) {
+            res.status(400);
+            throw new Error('Bạn đã hết lượt sử dụng mã giảm giá này');
+        }
+    } else if (discountCodeExist.usedBy.includes(req.user._id)) {
         res.status(400);
-        throw new Error('Mỗi mã giảm giá chỉ được sử dụng 1 lần. Bạn đã sử dụng mã này rồi');
+        throw new Error('Bạn đã hết lượt sử dụng mã giảm giá này');
     }
 
     let totalProductPrice = 0;

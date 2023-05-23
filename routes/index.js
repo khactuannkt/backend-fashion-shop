@@ -8,6 +8,7 @@ import categoryRouter from './category.route.js';
 import discountCodeRouter from './discountCode.route.js';
 import deliveryRouter from './delivery.route.js';
 import testRouter from './test.route.js';
+import commonRouter from './common.router.js';
 const routes = (app) => {
     app.use('/api/v1/banners', bannerRouter);
     app.use('/api/v1/carts', cartRouter);
@@ -18,6 +19,7 @@ const routes = (app) => {
     app.use('/api/v1/orders', orderRouter);
     app.use('/api/v1/products', productRouter);
     app.use('/api/v1/users', userRouter);
+    app.use('/api/v1/common', commonRouter);
     app.use('/api/v1/tests', testRouter);
 };
 export default routes;

@@ -380,12 +380,12 @@ const updateCOD = async (req, res) => {
         return res.status(400).json({ message: message });
     }
     const orderId = req.params.id || '';
-    const cod_amount = req.body.cod_amount || 0;
+    const cod_amount = Number(req.body.cod_amount);
     if (!orderId || orderId.trim() == '') {
         res.status(400);
         throw new Error('Đơn hàng không tồn tại');
     }
-    const order = await Order.findOne({ _id: orderId, disabled: false }).populate('delivery');
+    const order = await Order.findOne({ _id: orderId, disabled: false }).populate(['delivery', 'paymentInformation']);
     if (!order) {
         res.status(400);
         throw new Error('Đơn hàng không tồn tại');
@@ -403,7 +403,10 @@ const updateCOD = async (req, res) => {
     await GHN_Request.get('/v2/shipping-order/updateCOD', config)
         .then(async (response) => {
             order.delivery.cod_amount = cod_amount;
+
             await order.delivery.save();
+            order.paymentInformation.amount = cod_amount;
+            await order.paymentInformation.save();
             res.status(200).json({
                 message: 'Success',
                 data: null,

@@ -101,6 +101,8 @@ const orderSchema = mongoose.Schema(
         status: {
             type: String,
             required: true,
+            enum: ['placed', 'confirm', 'delivering', 'delivered', 'cancelled', 'completed'],
+            default: 'placed',
         },
         statusHistory: [orderStatus],
         disabled: {

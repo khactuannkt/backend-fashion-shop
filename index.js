@@ -12,6 +12,8 @@ import path from 'path';
 import routes from './routes/index.js';
 import multer from 'multer';
 import logger from './utils/logger.js';
+import { deleteExpiredTokens } from './cronJobs/cronJobs.js';
+
 dotenv.config();
 connectDatabase();
 const app = express();
