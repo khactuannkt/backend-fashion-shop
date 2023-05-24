@@ -106,7 +106,7 @@ const checkOrderProductList = async (size, orderItems) => {
                 deleted: false,
             }).populate('product');
             if (!orderedVariant || !orderedVariant.product?._id) {
-                throw new Error(`Sản phẩm có ID "${orderItem.variant}" không tồn tại`);
+                throw new Error(`Sản phẩm "${orderItem.name ? orderItem.name : orderItem.variant}" không tồn tại`);
             }
             if (orderedVariant.quantity < orderItem.quantity) {
                 throw new Error(
@@ -569,27 +569,27 @@ const createOrder = async (req, res, next) => {
             }
 
             orderInfor.paymentInformation = createOrderPaymentInformation._id;
-            //start cron-job
-            let scheduledJob = schedule.scheduleJob(
-                `*/${process.env.PAYMENT_EXPIRY_TIME_IN_MINUTE} * * * *`,
-                async () => {
-                    console.log(`Đơn hàng "${orderInfor._id}" đã bị hủy `);
-                    const foundOrder = await Order.findOne({
-                        _id: orderInfor._id,
-                    }).populate('paymentInformation');
-                    if (!foundOrder.paymentInformation.paid) {
-                        foundOrder.statusHistory.push({
-                            status: 'cancelled',
-                            description: 'Đơn hàng bị hủy do chưa được thanh toán',
-                        });
-                        if (foundOrder.status != 'cancelled') {
-                            foundOrder.status = 'cancelled';
-                            await foundOrder.save();
-                        }
-                    }
-                    scheduledJob.cancel();
-                },
-            );
+            // //start cron-job
+            // let scheduledJob = schedule.scheduleJob(
+            //     `*/${process.env.PAYMENT_EXPIRY_TIME_IN_MINUTE} * * * *`,
+            //     async () => {
+            //         console.log(`Đơn hàng "${orderInfor._id}" đã bị hủy `);
+            //         const foundOrder = await Order.findOne({
+            //             _id: orderInfor._id,
+            //         }).populate('paymentInformation');
+            //         if (!foundOrder.paymentInformation.paid) {
+            //             foundOrder.statusHistory.push({
+            //                 status: 'cancelled',
+            //                 description: 'Đơn hàng bị hủy do chưa được thanh toán',
+            //             });
+            //             if (foundOrder.status != 'cancelled') {
+            //                 foundOrder.status = 'cancelled';
+            //                 await foundOrder.save();
+            //             }
+            //         }
+            //         scheduledJob.cancel();
+            //     },
+            // );
             await Cart.findOneAndUpdate(
                 { user: req.user._id },
                 { $pull: { cartItems: { variant: { $in: productCheckResult.orderItemIds } } } },
@@ -946,15 +946,54 @@ const adminPaymentOrder = async (req, res) => {
         res.status(400);
         throw new Error('Đơn hàng đã hoàn thành việc thanh toán');
     }
-    order.paymentInformation.paid = true;
-    order.paymentInformation.paidAt = new Date();
-    order.statusHistory.push({
-        status: 'paid',
-        updateBy: req.user._id,
-    });
-    await order.paymentInformation.save();
-    const updateOrder = await (await order.save()).populate(['delivery', 'paymentInformation']);
-    res.status(200).json({ message: 'Xác nhận thanh toán đơn hàng thành công', data: { updateOrder } });
+    const session = await mongoose.startSession();
+    const transactionOptions = {
+        readPreference: 'primary',
+        readConcern: { level: 'local' },
+        writeConcern: { w: 'majority' },
+    };
+
+    try {
+        await session.withTransaction(async () => {
+            order.paymentInformation.paid = true;
+            order.paymentInformation.paidAt = new Date();
+            order.statusHistory.push({
+                status: 'paid',
+                updateBy: req.user._id,
+            });
+            if (order.delivery.deliveryCode && order.delivery?.deliveryCode.trim() != '') {
+                {
+                    const config = {
+                        data: JSON.stringify({
+                            order_code: order.delivery.deliveryCode,
+                            cod_amount: 0,
+                        }),
+                    };
+                    await GHN_Request.get('/v2/shipping-order/updateCOD', config)
+                        .then(async (response) => {
+                            order.delivery.cod_amount = cod_amount;
+                            await order.delivery.save({ session });
+                        })
+                        .catch((error) => {
+                            res.status(error.response.data.code || 500);
+                            throw new Error(
+                                error.response.data.message.code_message_value ||
+                                    error.response.data.message ||
+                                    error.message ||
+                                    '',
+                            );
+                        });
+                }
+            }
+            await order.paymentInformation.save({ session });
+            const updateOrder = await (await order.save({ session })).populate(['delivery', 'paymentInformation']);
+            res.status(200).json({ message: 'Xác nhận thanh toán đơn hàng thành công', data: { updateOrder } });
+        }, transactionOptions);
+    } catch (error) {
+        next(error);
+    } finally {
+        session.endSession();
+    }
 };
 
 const cancelOrder = async (req, res, next) => {

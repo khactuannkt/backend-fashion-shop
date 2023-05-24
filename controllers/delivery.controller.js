@@ -94,7 +94,6 @@ const calculateFee = async (req, res) => {
         return res.status(400).json({ message: message });
     }
     const {
-        service_id = 53320,
         to_district_id,
         to_ward_code,
         height = null,
@@ -105,36 +104,6 @@ const calculateFee = async (req, res) => {
         coupon = null,
     } = req.body;
 
-    // const configFee = {
-    //     data: JSON.stringify({
-    //         shop_id: Number(process.env.GHN_SHOP_ID),
-    //         service_id,
-    //         to_district_id,
-    //         to_ward_code,
-    //         height,
-    //         length,
-    //         weight,
-    //         width,
-    //         insurance_value,
-    //         coupon,
-    //     }),
-    // };
-
-    // const configLeadTime = {
-    //     data: JSON.stringify({
-    //         shop_id: Number(process.env.GHN_SHOP_ID),
-    //         service_id,
-    //         to_district_id,
-    //         to_ward_code,
-    //     }),
-    // };
-    // const configGetService = {
-    //     data: JSON.stringify({
-    //         shop_id: Number(process.env.GHN_SHOP_ID),
-    //         from_district: 1454,
-    //         to_district: to_district_id,
-    //     }),
-    // };
     const deliveryServices = [];
     const services = await GHN_Request.get('/v2/shipping-order/available-services', {
         data: JSON.stringify({
@@ -192,34 +161,11 @@ const calculateFee = async (req, res) => {
             });
         const [feeResult, leadTimeResult] = await Promise.all([calculateFeeRequest, leadTimeRequest]);
         result.fee = feeResult.total;
-        const leadTime = new Date(leadTimeResult.leadtime * 1000);
-        result.leadTime = leadTime.setDate(leadTime.getDate() + 1);
+        result.leadTime = leadTimeResult.leadtime * 1000;
         deliveryServices.push(result);
     });
     await Promise.all(getService);
 
-    // const calculateFeeRequest = GHN_Request.get('v2/shipping-order/fee', configFee)
-    //     .then((response) => {
-    //         return response.data.data;
-    //     })
-    //     .catch((error) => {
-    //         res.status(error.response.data.code || 500);
-    //         throw new Error(error.response.data.message || error.message || '');
-    //     });
-
-    // const leadTimeRequest = GHN_Request.get('v2/shipping-order/leadtime', configLeadTime)
-    //     .then((response) => {
-    //         return response.data.data;
-    //     })
-    //     .catch((error) => {
-    //         res.status(error.response.data.code || 500);
-    //         throw new Error(error.response.data.message || error.message || '');
-    //     });
-    // let [fee, leadTime] = await Promise.all([calculateFeeRequest, leadTimeRequest]);
-    // leadTime.leadtime = new Date(leadTime.leadtime);
-    // leadTime.leadtime = leadTime.leadtime.setDate(leadTime.leadtime.getDate() + 1);
-
-    // res.status(200).json({ message: 'Success', data: { fee: {}, leadTime: {}, deliveryServices } });
     res.status(200).json({ message: 'Success', data: { deliveryServices } });
 };
 
@@ -388,36 +334,57 @@ const updateCOD = async (req, res) => {
     const order = await Order.findOne({ _id: orderId, disabled: false }).populate(['delivery', 'paymentInformation']);
     if (!order) {
         res.status(400);
-        throw new Error('Đơn hàng không tồn tại');
+        throw new Error('Đơn hàng chưa được xác nhận');
     }
+    switch (order.status) {
+        case 'placed':
+            res.status(400);
+            throw new Error('Đơn hàng đã được xác nhận');
+        case 'confirm':
+            res.status(400);
+            throw new Error('Đơn hàng chưa tạo đơn giao của đơn vị vận chuyển');
+        case 'delivered':
+            res.status(400);
+            throw new Error('Đơn hàng đã được giao thành công');
+        case 'completed':
+            res.status(400);
+            throw new Error('Đơn hàng đã được hoàn thành');
+        case 'cancelled':
+            res.status(400);
+            throw new Error('Đơn hàng đã bị hủy');
+        default:
+            break;
+    }
+
     if (!order.delivery.deliveryCode || order.delivery?.deliveryCode.trim() == '') {
         res.status(400);
         throw new Error('Đơn hàng chưa tạo đơn giao của đơn vị vận chuyển');
-    }
-    const config = {
-        data: JSON.stringify({
-            order_code: order.delivery.deliveryCode,
-            cod_amount: cod_amount,
-        }),
-    };
-    await GHN_Request.get('/v2/shipping-order/updateCOD', config)
-        .then(async (response) => {
-            order.delivery.cod_amount = cod_amount;
-
-            await order.delivery.save();
-            order.paymentInformation.amount = cod_amount;
-            await order.paymentInformation.save();
-            res.status(200).json({
-                message: 'Success',
-                data: null,
+    } else {
+        const config = {
+            data: JSON.stringify({
+                order_code: order.delivery.deliveryCode,
+                cod_amount: cod_amount,
+            }),
+        };
+        await GHN_Request.get('/v2/shipping-order/updateCOD', config)
+            .then(async (response) => {
+                order.delivery.cod_amount = cod_amount;
+                await order.delivery.save();
+                res.status(200).json({
+                    message: 'Success',
+                    data: null,
+                });
+            })
+            .catch((error) => {
+                res.status(error.response.data.code || 500);
+                throw new Error(
+                    error.response.data.message.code_message_value ||
+                        error.response.data.message ||
+                        error.message ||
+                        '',
+                );
             });
-        })
-        .catch((error) => {
-            res.status(error.response.data.code || 500);
-            throw new Error(
-                error.response.data.message.code_message_value || error.response.data.message || error.message || '',
-            );
-        });
+    }
 };
 
 const deliveryController = {

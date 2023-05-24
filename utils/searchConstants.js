@@ -11,7 +11,7 @@ const productQueryParams = {
         deleted: { deleted: true },
         disabled: { disabled: true, deleted: false },
         not_disabled: { disabled: false, deleted: false },
-        all: {},
+        all: { deleted: false },
         default: { disabled: false, deleted: false },
     },
 };

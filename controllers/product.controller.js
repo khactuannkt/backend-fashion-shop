@@ -393,19 +393,24 @@ const createProduct = async (req, res, next) => {
             });
             if (variants && variants.length > 0) {
                 let totalQuantity = 0;
-                let minPriceSale = variants[0].priceSale;
-                let minPrice = variants[0].price;
+                let minPrice = 0;
+                let minPriceSale = -1;
 
                 const variantIds = [];
                 const createVariant = variants.map(async (variant) => {
-                    totalQuantity += Number(variant.quantity);
                     if (!variant.priceSale) {
                         variant.priceSale = variant.price;
+                    }
+                    if (minPriceSale == -1) {
+                        minPriceSale = variant.priceSale;
+                        minPrice = variant.price;
                     }
                     if (minPriceSale > variant.priceSale) {
                         minPriceSale = variant.priceSale;
                         minPrice = variant.price;
                     }
+                    totalQuantity += Number(variant.quantity);
+
                     const newVariant = new Variant({ product: product._id, ...variant });
                     await newVariant.save({ session });
                     variantIds.push(newVariant._id);
@@ -557,24 +562,23 @@ const updateProduct = async (req, res, next) => {
 
             const updateVariantsId = [];
             let totalQuantity = 0;
-            let minPriceSale = 0;
             let minPrice = 0;
+            let minPriceSale = -1;
             const variantUpdates = variants.map(async (variant) => {
                 if (variant.status == 1 || variant.status == 0) {
-                    if (minPrice == 0) {
-                        minPrice = variant.price;
-                    }
-                    if (minPriceSale == 0) {
-                        minPriceSale = variant.priceSale;
-                    }
-                    totalQuantity += Number(variant.quantity);
                     if (!variant.priceSale) {
                         variant.priceSale = variant.price;
+                    }
+
+                    if (minPriceSale == -1) {
+                        minPriceSale = variant.priceSale;
+                        minPrice = variant.price;
                     }
                     if (minPriceSale > variant.priceSale) {
                         minPriceSale = variant.priceSale;
                         minPrice = variant.price;
                     }
+                    totalQuantity += Number(variant.quantity);
                     if (variant.status == 1) {
                         const newVariant = new Variant({
                             product: currentProduct._id,
@@ -684,6 +688,11 @@ const reviewProduct = async (req, res) => {
         res.status(400);
         throw new Error('Bạn cần mua sản phẩm này để có thể đánh giá nó');
     }
+    order.orderItems.map((orderItem, index) => {
+        if (orderItem.product.toString() == product._id.toString()) {
+            order.orderItems[index].isAbleToReview = false;
+        }
+    });
     const review = {
         name: req.user.name,
         rating: Number(rating),
@@ -694,15 +703,9 @@ const reviewProduct = async (req, res) => {
     product.rating =
         product.reviews.reduce((previousValue, currentReview) => previousValue + currentReview.rating, 0) /
         product.reviews.length;
-    const reviewOrderIndex = order.orderItems.findIndex((orderItem) => {
-        return orderItem.product.toString() == product._id.toString();
-    });
-    if (reviewOrderIndex != -1) {
-        order.orderItems[reviewOrderIndex].isAbleToReview = false;
-        await Promise.all([product.save(), order.save()]);
-    } else {
-        await product.save();
-    }
+
+    await Promise.all([product.save(), order.save()]);
+
     res.status(201).json({ message: 'Đánh giá thành công' });
 };
 const hideProduct = async (req, res) => {
@@ -713,7 +716,7 @@ const hideProduct = async (req, res) => {
         return res.status(400).json({ message: message });
     }
     const productId = req.params.id || null;
-    const disabledProduct = await Product.findIdAndUpdate({ _id: productId }, { disabled: true });
+    const disabledProduct = await Product.findOneAndUpdate({ _id: productId }, { disabled: true });
     if (!disabledProduct) {
         res.status(404);
         throw new Error('Sản phẩm không tồn tại!');
@@ -730,7 +733,7 @@ const unhideProduct = async (req, res) => {
         return res.status(400).json({ message: message });
     }
     const productId = req.params.id || null;
-    const disabledProduct = await Product.findIdAndUpdate({ _id: productId }, { disabled: false });
+    const disabledProduct = await Product.findOneAndUpdate({ _id: productId }, { disabled: false });
     if (!disabledProduct) {
         res.status(404);
         throw new Error('Sản phẩm không tồn tại!');
@@ -747,7 +750,7 @@ const restoreProduct = async (req, res) => {
         return res.status(400).json({ message: message });
     }
     const productId = req.params.id || null;
-    const deletedProduct = await Product.findByIdAndUpdate(productId, { deleted: true });
+    const deletedProduct = await Product.findOneAndUpdate({ _id: productId }, { deleted: false });
     if (!deletedProduct) {
         res.status(404);
         throw new Error('Sản phẩm không tồn tại');
@@ -765,7 +768,7 @@ const deleteProduct = async (req, res) => {
         return res.status(400).json({ message: message });
     }
     const productId = req.params.id || null;
-    const deletedProduct = await Product.findByIdAndUpdate(productId, { deleted: true });
+    const deletedProduct = await Product.findOneAndUpdate({ _id: productId }, { deleted: true });
     if (!deletedProduct) {
         res.status(404);
         throw new Error('Sản phẩm không tồn tại');

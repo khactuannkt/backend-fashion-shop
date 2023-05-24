@@ -560,9 +560,11 @@ const addUserDiscountCode = async (req, res) => {
         res.status(404);
         throw new Error('Mã giảm giá Đã hết hạn');
     }
-    if (existedDiscountCode.used >= existedDiscountCode.usageLimit) {
-        res.status(400);
-        throw new Error('Mã giảm giá đã được sử dụng hết');
+    if (existedDiscountCode.isUsageLimit) {
+        if (existedDiscountCode.used >= existedDiscountCode.usageLimit) {
+            res.status(400);
+            throw new Error('Mã giảm giá đã được sử dụng hết');
+        }
     }
     if (req.user.discountCode.indexOf(existedDiscountCode._id) != -1) {
         res.status(400);
