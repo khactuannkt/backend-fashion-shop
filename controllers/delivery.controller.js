@@ -334,7 +334,7 @@ const updateCOD = async (req, res) => {
     const order = await Order.findOne({ _id: orderId, disabled: false }).populate(['delivery', 'paymentInformation']);
     if (!order) {
         res.status(400);
-        throw new Error('Đơn hàng chưa được xác nhận');
+        throw new Error('Đơn hàng không tồn tại');
     }
     switch (order.status) {
         case 'placed':
@@ -386,7 +386,68 @@ const updateCOD = async (req, res) => {
             });
     }
 };
+const updateStatus = async (req, res) => {
+    const orderId = req.params.id || '';
+    const deliveryCode = Number(req.body.OrderCode);
+    if (!deliveryCode || deliveryCode.trim() == '') {
+        res.status(400);
+        throw new Error('Đơn giao hàng không tồn tại');
+    }
+    const delivery = await Delivery.findOne({ deliveryCode: deliveryCode }).populate(['order']);
+    if (!delivery) {
+        res.status(400);
+        throw new Error('Đơn giao hàng không tồn tại');
+    }
+    switch (delivery.status) {
+        case 'placed':
+            res.status(400);
+            throw new Error('Đơn hàng đã được xác nhận');
+        case 'confirm':
+            res.status(400);
+            throw new Error('Đơn hàng chưa tạo đơn giao của đơn vị vận chuyển');
+        case 'delivered':
+            res.status(400);
+            throw new Error('Đơn hàng đã được giao thành công');
+        case 'completed':
+            res.status(400);
+            throw new Error('Đơn hàng đã được hoàn thành');
+        case 'cancelled':
+            res.status(400);
+            throw new Error('Đơn hàng đã bị hủy');
+        default:
+            break;
+    }
 
+    if (!delivery.delivery.deliveryCode || delivery.delivery?.deliveryCode.trim() == '') {
+        res.status(400);
+        throw new Error('Đơn hàng chưa tạo đơn giao của đơn vị vận chuyển');
+    } else {
+        const config = {
+            data: JSON.stringify({
+                order_code: delivery.delivery.deliveryCode,
+                cod_amount: cod_amount,
+            }),
+        };
+        await GHN_Request.get('/v2/shipping-order/updateCOD', config)
+            .then(async (response) => {
+                delivery.delivery.cod_amount = cod_amount;
+                await delivery.delivery.save();
+                res.status(200).json({
+                    message: 'Success',
+                    data: null,
+                });
+            })
+            .catch((error) => {
+                res.status(error.response.data.code || 500);
+                throw new Error(
+                    error.response.data.message.code_message_value ||
+                        error.response.data.message ||
+                        error.message ||
+                        '',
+                );
+            });
+    }
+};
 const deliveryController = {
     getDeliveries,
     getDistrict,
@@ -398,5 +459,6 @@ const deliveryController = {
     preview,
     printOrder,
     updateCOD,
+    updateStatus,
 };
 export default deliveryController;

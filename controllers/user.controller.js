@@ -175,7 +175,7 @@ const register = async (req, res) => {
 
 const verifyEmail = async (req, res) => {
     const emailVerificationToken = req.query.emailVerificationToken?.toString().trim() || '';
-    if (!emailVerificationToken || emailVerificationToken === '') {
+    if (!emailVerificationToken || emailVerificationToken == '') {
         res.status(400);
         throw new Error('Mã thông báo xác minh email không tồn tại');
     }

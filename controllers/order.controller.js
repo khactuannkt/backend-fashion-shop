@@ -486,7 +486,7 @@ const createOrder = async (req, res, next) => {
             if (leadTime == 'Invalid Date') {
                 leadTime = null;
             }
-            leadTime = leadTime.setDate(leadTime.getDate() + 1);
+
             const newShippingInfor = new Delivery({
                 order: orderInfor._id,
                 client: req.user._id,
@@ -569,27 +569,27 @@ const createOrder = async (req, res, next) => {
             }
 
             orderInfor.paymentInformation = createOrderPaymentInformation._id;
-            // //start cron-job
-            // let scheduledJob = schedule.scheduleJob(
-            //     `*/${process.env.PAYMENT_EXPIRY_TIME_IN_MINUTE} * * * *`,
-            //     async () => {
-            //         console.log(`Đơn hàng "${orderInfor._id}" đã bị hủy `);
-            //         const foundOrder = await Order.findOne({
-            //             _id: orderInfor._id,
-            //         }).populate('paymentInformation');
-            //         if (!foundOrder.paymentInformation.paid) {
-            //             foundOrder.statusHistory.push({
-            //                 status: 'cancelled',
-            //                 description: 'Đơn hàng bị hủy do chưa được thanh toán',
-            //             });
-            //             if (foundOrder.status != 'cancelled') {
-            //                 foundOrder.status = 'cancelled';
-            //                 await foundOrder.save();
-            //             }
-            //         }
-            //         scheduledJob.cancel();
-            //     },
-            // );
+            //start cron-job
+            let scheduledJob = schedule.scheduleJob(
+                `*/${process.env.PAYMENT_EXPIRY_TIME_IN_MINUTE} * * * *`,
+                async () => {
+                    console.log(`Đơn hàng "${orderInfor._id}" đã bị hủy `);
+                    const foundOrder = await Order.findOne({
+                        _id: orderInfor._id,
+                    }).populate('paymentInformation');
+                    if (!foundOrder.paymentInformation.paid) {
+                        foundOrder.statusHistory.push({
+                            status: 'cancelled',
+                            description: 'Đơn hàng bị hủy do chưa được thanh toán',
+                        });
+                        if (foundOrder.status != 'cancelled') {
+                            foundOrder.status = 'cancelled';
+                            await foundOrder.save();
+                        }
+                    }
+                    scheduledJob.cancel();
+                },
+            );
             await Cart.findOneAndUpdate(
                 { user: req.user._id },
                 { $pull: { cartItems: { variant: { $in: productCheckResult.orderItemIds } } } },

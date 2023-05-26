@@ -343,7 +343,35 @@ const createProduct = async (req, res, next) => {
 
     const variantsValue = {};
     variants.map((variant) => {
+        if (!variant.price) {
+            res.status(400);
+            throw new Error('Giá của các sản phẩm không được để trống');
+        }
+        if (Number(variant.price) == NaN) {
+            res.status(400);
+            throw new Error('Giá của các sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0');
+        }
+        if (!variant.quantity) {
+            res.status(400);
+            throw new Error('Giá của các sản phẩm không được để trống');
+        }
+        if (Number(variant.quantity) == NaN) {
+            res.status(400);
+            throw new Error('Giá của các sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0');
+        }
+        if (!variant.attributes) {
+            res.status(400);
+            throw new Error('Danh sách thuộc tính các biến thể không được để trống');
+        }
         variant.attributes.map((attr) => {
+            if (!attr.name || attr.name.trim() == '') {
+                res.status(400);
+                throw new Error('Tên các thuộc tính của biến thể sản phẩm không được để trống');
+            }
+            if (!attr.value || attr.value.trim() == '') {
+                res.status(400);
+                throw new Error('Giá trị thuộc tính của các biến thể sản phẩm không được để trống');
+            }
             if (!variantsValue[`${attr.name}`]) {
                 variantsValue[`${attr.name}`] = [];
             }
@@ -479,8 +507,36 @@ const updateProduct = async (req, res, next) => {
     const variantsValue = {};
     let count = 0;
     variants.map((variant) => {
+        if (!variant.price) {
+            res.status(400);
+            throw new Error('Giá của các sản phẩm không được để trống');
+        }
+        if (Number(variant.price) == NaN) {
+            res.status(400);
+            throw new Error('Giá của các sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0');
+        }
+        if (!variant.quantity) {
+            res.status(400);
+            throw new Error('Giá của các sản phẩm không được để trống');
+        }
+        if (Number(variant.quantity) == NaN) {
+            res.status(400);
+            throw new Error('Giá của các sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0');
+        }
+        if (!variant.attributes) {
+            res.status(400);
+            throw new Error('Danh sách thuộc tính các biến thể không được để trống');
+        }
         if (variant.status != -1) {
             variant.attributes.map((attr) => {
+                if (!attr.name || attr.name.trim() == '') {
+                    res.status(400);
+                    throw new Error('Tên các thuộc tính của biến thể sản phẩm không được để trống');
+                }
+                if (!attr.value || attr.value.trim() == '') {
+                    res.status(400);
+                    throw new Error('Giá trị thuộc tính của các biến thể sản phẩm không được để trống');
+                }
                 if (!variantsValue[`${attr.name}`]) {
                     variantsValue[`${attr.name}`] = [];
                 }

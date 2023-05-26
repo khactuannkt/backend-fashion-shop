@@ -17,6 +17,7 @@ deliveryRouter.get(
 );
 deliveryRouter.get('/', protect, auth('staff', 'admin'), asyncHandler(deliveryController.getDeliveries));
 deliveryRouter.post('/shipping-order/fee', validate.calculateFee, asyncHandler(deliveryController.calculateFee));
+deliveryRouter.post('/shipping-order/update-status', asyncHandler(deliveryController.updateStatus));
 deliveryRouter.post('/shipping-order/services', validate.calculateFee, asyncHandler(deliveryController.calculateFee));
 deliveryRouter.post(
     '/shipping-order/lead-time',

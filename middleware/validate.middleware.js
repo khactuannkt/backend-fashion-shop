@@ -580,34 +580,34 @@ const validate = {
         // .custom((variants) => {
         //     variants = JSON.parse(variants);
         // }),
-        check('variants.*.price')
-            .notEmpty()
-            .withMessage('Giá của các biến thể sản phẩm không được để trống')
-            .isInt({ min: 0 })
-            .withMessage('Giá của các biến thể sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0'),
-        // check('variants.*.priceSale')
+        // check('variants.*.price')
         //     .notEmpty()
-        //     .withMessage('Giá đã giảm của các biến thể sản phẩm không được để trống')
+        //     .withMessage('Giá của các biến thể sản phẩm không được để trống')
         //     .isInt({ min: 0 })
-        //     .withMessage('Giá đã giảm của các biến thể sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0'),
-        check('variants.*.quantity')
-            .notEmpty()
-            .withMessage('Số lượng các biến thể sản phẩm không được để trống')
-            .isInt({ min: 0 })
-            .withMessage('Số lượng các biến thể sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0'),
-        check('variants.*.attributes')
-            .notEmpty()
-            .withMessage('Danh sách thuộc tính các biến thể không được để trống')
-            .isArray()
-            .withMessage('Danh sách thuộc tính của biến thể phải là mảng'),
-        check('variants.*.attributes.*.name')
-            .trim()
-            .notEmpty()
-            .withMessage('Tên các thuộc tính của biến thể sản phẩm không được để trống'),
-        check('variants.*.attributes.*.value')
-            .trim()
-            .notEmpty()
-            .withMessage('Giá trị các thuộc tính của biến thể sản phẩm không được để trống'),
+        //     .withMessage('Giá của các biến thể sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0'),
+        // // check('variants.*.priceSale')
+        // //     .notEmpty()
+        // //     .withMessage('Giá đã giảm của các biến thể sản phẩm không được để trống')
+        // //     .isInt({ min: 0 })
+        // //     .withMessage('Giá đã giảm của các biến thể sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0'),
+        // check('variants.*.quantity')
+        //     .notEmpty()
+        //     .withMessage('Số lượng các biến thể sản phẩm không được để trống')
+        //     .isInt({ min: 0 })
+        //     .withMessage('Số lượng các biến thể sản phẩm phải là số nguyên và phải lớn hơn hoặc bằng 0'),
+        // check('variants.*.attributes')
+        //     .notEmpty()
+        //     .withMessage('Danh sách thuộc tính các biến thể không được để trống')
+        //     .isArray()
+        //     .withMessage('Danh sách thuộc tính của biến thể phải là mảng'),
+        // check('variants.*.attributes.*.name')
+        //     .trim()
+        //     .notEmpty()
+        //     .withMessage('Tên các thuộc tính của biến thể sản phẩm không được để trống'),
+        // check('variants.*.attributes.*.value')
+        //     .trim()
+        //     .notEmpty()
+        //     .withMessage('Giá trị các thuộc tính của biến thể sản phẩm không được để trống'),
     ],
     updateProduct: [
         check('id').custom((id) => {
