@@ -752,7 +752,7 @@ const confirmDelivered = async (req, res) => {
     }
     const orderId = req.params.id || '';
     const description = req.body.description?.toString()?.trim() || '';
-    const order = await Order.findOne({ _id: orderId, disabled: false }).populate('delivery');
+    const order = await Order.findOne({ _id: orderId, disabled: false }).populate(['delivery', 'paymentInformation']);
     if (!order) {
         res.status(404);
         throw new Error('Đơn hàng không tồn tại!');
@@ -774,6 +774,8 @@ const confirmDelivered = async (req, res) => {
         default:
             break;
     }
+    order.paymentInformation.paid = true;
+    order.paymentInformation.paidAt = new Date();
     order.delivery.statusHistory.push({ status: 'delivered', updated_date: new Date() });
     order.delivery.status = 'delivered';
     order.delivery.finish_date = new Date();

@@ -370,7 +370,13 @@ const validate = {
     ],
     //====================Validate User==================
     register: [
-        check('name').trim().not().isEmpty().withMessage('Tên không được để trống'),
+        check('name')
+            .trim()
+            .not()
+            .isEmpty()
+            .withMessage('Tên không được để trống')
+            .isLength({ max: 50 })
+            .withMessage('Tên không được dài quá 50 ký tự'),
         check('email')
             .trim()
             .not()
@@ -409,7 +415,13 @@ const validate = {
         check('password').trim().not().isEmpty().withMessage('Mật khẩu không được để trống'),
     ],
     updateProfile: [
-        check('name').trim().not().isEmpty().withMessage('Tên không được để trống'),
+        check('name')
+            .trim()
+            .not()
+            .isEmpty()
+            .withMessage('Tên không được để trống')
+            .isLength({ max: 50 })
+            .withMessage('Tên không được dài quá 50 ký tự'),
         check('phone')
             .trim()
             .not()
@@ -442,7 +454,11 @@ const validate = {
             }),
     ],
     userAddress: [
-        check('name').notEmpty().withMessage('Tên người nhận không được để trống'),
+        check('name')
+            .notEmpty()
+            .withMessage('Tên người nhận không được để trống')
+            .isLength({ max: 50 })
+            .withMessage('Tên người nhận không được dài quá 50 ký tự'),
         check('phone')
             .notEmpty()
             .withMessage('Số điện thoại người nhận không được để trống')
@@ -543,7 +559,12 @@ const validate = {
         }),
     ],
     createProduct: [
-        check('name').trim().notEmpty().withMessage('Tên sản phẩm không được để trống'),
+        check('name')
+            .trim()
+            .notEmpty()
+            .withMessage('Tên sản phẩm không được để trống')
+            .isLength({ max: 255 })
+            .withMessage('Tên sản phẩm không được dài quá 255 ký tự'),
         check('description').trim().notEmpty().withMessage('Mô tả sản phẩm không được để trống'),
         check('category')
             .notEmpty()
@@ -616,7 +637,13 @@ const validate = {
             }
             return true;
         }),
-        check('name').trim().notEmpty().withMessage('Tên sản phẩm không được để trống'),
+        check('name')
+            .trim()
+            .notEmpty()
+            .withMessage('Tên sản phẩm không được để trống')
+            .isLength({ max: 255 })
+            .withMessage('Tên sản phẩm không được dài quá 255 ký tự'),
+
         check('description').trim().notEmpty().withMessage('Mô tả sản phẩm không được để trống'),
         check('category')
             .notEmpty()
