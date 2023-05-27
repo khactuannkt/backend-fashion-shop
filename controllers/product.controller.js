@@ -7,7 +7,7 @@ import Cart from '../models/cart.model.js';
 import Variant from '../models/variant.model.js';
 import { productQueryParams, validateConstants, priceRangeFilter, ratingFilter } from '../utils/searchConstants.js';
 import { cloudinaryUpload, cloudinaryRemove } from '../utils/cloudinary.js';
-import { validationResult } from 'express-validator';
+import { Result, validationResult } from 'express-validator';
 import slug from 'slug';
 import { extractKeywords } from '../utils/extractKeywords.js';
 
@@ -19,33 +19,43 @@ const getProducts = async (req, res) => {
     let page = parseInt(req.query.page) >= 0 ? parseInt(req.query.page) : 0;
     const sortBy = validateConstants(productQueryParams, 'sort', req.query.sortBy || 'default');
     let statusFilter = validateConstants(productQueryParams, 'status', 'default');
-
     const keyword = req.query.keyword
         ? {
-              $or: [
-                  {
-                      name: {
-                          $regex: req.query.keyword,
-                          $options: 'i',
-                      },
-                  },
-                  {
-                      slug: {
-                          $regex: req.query.keyword,
-                          $options: 'i',
-                      },
-                  },
-
-                  {
-                      keywords: {
-                          $elemMatch: {
-                              $eq: req.query.keyword,
-                          },
-                      },
-                  },
-              ],
+              $text: {
+                  $search: req.query.keyword,
+                  // $language: 'en',
+                  $caseSensitive: true,
+                  $diacriticSensitive: false,
+              },
           }
         : {};
+    const sort = req.query.keyword ? { ...sortBy, score: { $meta: 'textScore' } } : { ...sortBy };
+    // const keyword = req.query.keyword
+    //     ? {
+    //           $or: [
+    //               {
+    //                   name: {
+    //                       $regex: req.query.keyword,
+    //                       $options: 'i',
+    //                   },
+    //               },
+    //               {
+    //                   slug: {
+    //                       $regex: req.query.keyword,
+    //                       $options: 'i',
+    //                   },
+    //               },
+
+    //               {
+    //                   keywords: {
+    //                       $elemMatch: {
+    //                           $eq: req.query.keyword,
+    //                       },
+    //                   },
+    //               },
+    //           ],
+    //       }
+    //     : {};
     //Check if category existed
     let categoryName = req.query.category || null;
     let categoryIds = [];
@@ -71,6 +81,7 @@ const getProducts = async (req, res) => {
         ...priceRangeFilter(minPrice, maxPrice),
         ...ratingFilter(rating),
     };
+
     const count = await Product.countDocuments(productFilter);
     //Check if product match keyword
     if (count == 0) {
@@ -83,7 +94,7 @@ const getProducts = async (req, res) => {
     const products = await Product.find(productFilter)
         .limit(limit)
         .skip(limit * page)
-        .sort(sortBy)
+        .sort({ ...sort })
         .populate('category')
         .populate('variants')
         .lean();
@@ -104,6 +115,7 @@ const getProductsByAdmin = async (req, res) => {
     let sortBy = req.query.sortBy || null;
     sortBy = validateConstants(productQueryParams, 'sort', sortBy ? sortBy : 'newest');
     let statusFilter = validateConstants(productQueryParams, 'status', status);
+
     const keyword = req.query.keyword
         ? {
               $or: [
@@ -202,80 +214,75 @@ const getProductSearchResults = async (req, res) => {
     const keywords = await Product.find(productFilter).limit(limit).select('name').lean();
     res.status(200).json({ message: 'Success', data: { keywords } });
 };
+
 const getProductRecommend = async (req, res) => {
     const limit = parseInt(req.query.limit) || 12;
-    const rating = parseInt(req.query.rating) || 0;
-    const maxPrice = parseInt(req.query.maxPrice) || 0;
-    const minPrice = parseInt(req.query.minPrice) || 0;
     const page = parseInt(req.query.page) || 0;
-    const status = req.query.status || null;
-
-    const sortBy = validateConstants(productQueryParams, 'sort', req.query.sortBy || 'default');
-
-    const keyword = req.query.keyword
+    const status = validateConstants(productQueryParams, 'status', 'default');
+    // const sortBy = validateConstants(productQueryParams, 'sort', req.query.sortBy || 'newest');
+    const sortBy = { totalSale: -1 };
+    const productId = req.query.id || '';
+    let productName = null,
+        category = null;
+    if (productId) {
+        const product = await Product.findOne({ _id: productId });
+        if (product) {
+            productName = product.name;
+            category = product.category;
+        }
+    }
+    const keyword = productName
         ? {
-              $or: [
-                  {
-                      name: {
-                          $regex: req.query.keyword,
-                          $options: 'i',
-                      },
-                  },
-
-                  {
-                      keywords: {
-                          $elemMatch: {
-                              $eq: req.query.keyword,
-                          },
-                      },
-                  },
-              ],
+              $text: {
+                  $search: productName,
+                  // $language: 'en',
+                  $caseSensitive: true,
+                  $diacriticSensitive: false,
+              },
           }
         : {};
 
-    //Check if category existed
-    let categoryName = req.query.category || null;
-    let categoryIds = [];
-    if (!categoryName) {
-        categoryIds = await Category.find({ disabled: false }).select({ _id: 1 }).lean();
-    } else {
-        const findCategory = await Category.findOne({ slug: categoryName, disabled: false })
-            .select({
-                _id: 1,
-                children: 1,
-            })
-            .lean();
-        if (findCategory) {
-            categoryIds.push(findCategory._id, ...findCategory.children);
-        }
-    }
-    const categoryFilter = categoryIds.length > 0 ? { category: categoryIds } : {};
+    const sort = productName ? { ...sortBy, score: { $meta: 'textScore' } } : { ...sortBy };
 
     const productFilter = {
         ...keyword,
-        ...categoryFilter,
-        ...priceRangeFilter(minPrice, maxPrice),
-        ...ratingFilter(rating),
     };
+    if (category) {
+        productFilter.category = category;
+    }
     const count = await Product.countDocuments(productFilter);
     //Check if product match keyword
     if (count == 0) {
-        res.status(204);
-        throw new Error('Không có sản phẩm nào!');
+        res.status(200).json({
+            message: 'Success',
+            data: { products: [], page: 0, pages: 0, total: 0 },
+        });
     }
-    //else
-    const products = await Product.find(productFilter)
-        .limit(limit)
-        .skip(limit * page)
-        .sort(sortBy)
-        .populate('category')
-        .populate('variants')
-        .lean();
-
-    res.status(200).json({
-        message: 'Success',
-        data: { products, page, pages: Math.ceil(count / limit), total: count },
-    });
+    const products = await Product.aggregate([
+        { $match: { ...productFilter } },
+        { $sample: { size: count } },
+        { $sort: { ...sort } },
+        { $skip: limit * page },
+        { $limit: limit },
+        { $lookup: { from: 'categories', localField: 'category', foreignField: '_id', as: 'category' } },
+        { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },
+        { $lookup: { from: 'variants', localField: 'variants', foreignField: '_id', as: 'variants' } },
+        { $addFields: { variants: { $ifNull: ['$variants', []] } } },
+    ])
+        // .limit(limit)
+        // .skip(limit * page)
+        // .sort({ sort })
+        .exec()
+        .then((results) => {
+            res.status(200).json({
+                message: 'Success',
+                data: { products: results, page, pages: Math.ceil(count / limit), total: count },
+            });
+        });
+    // .sort(sortBy)
+    // .populate('category')
+    // .populate('variants')
+    // .lean();
 };
 
 const getAllProductsByAdmin = async (req, res) => {
