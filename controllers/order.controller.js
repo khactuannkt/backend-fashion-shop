@@ -842,11 +842,13 @@ const orderPaymentNotification = async (req, res) => {
         res.status(400);
         throw new Error('Mã đơn hàng là giá trị bắt buộc');
     }
+
     const order = await Order.findOne({ _id: orderId, disabled: false }).populate('paymentInformation');
     if (!order) {
         res.status(404);
         throw new Error('Đơn hàng không tồn tại!');
     }
+    console.log(order);
     if (
         order.paymentInformation?.requestId?.toString() != req.body.requestId?.toString() ||
         Number(order.paymentInformation.paymentAmount) != Number(req.body.amount)
@@ -855,16 +857,16 @@ const orderPaymentNotification = async (req, res) => {
         throw new Error('Thông tin xác nhận thanh toán không hợp lệ');
     }
     if (req.body.resultCode != 0) {
-        if (foundOrder.status != 'cancelled' && foundOrder.status != 'delivered' && foundOrder.status != 'completed') {
+        if (order.status != 'cancelled' && order.status != 'delivered' && order.status != 'completed') {
             const message = statusResponseFalse[req.body.resultCode] || statusResponseFalse[99];
             order.statusHistory.push({ status: 'cancelled', description: message });
             order.status = 'cancelled';
             await order.save();
-            res.status(400);
+            res.status(204);
             throw new Error('Thanh toán thất bại');
         }
     } else {
-        if (foundOrder.status != 'cancelled') {
+        if (order.status != 'cancelled') {
             order.statusHistory.push({ status: 'paid', updateBy: order.user });
         }
         order.paymentInformation.paid = true;
