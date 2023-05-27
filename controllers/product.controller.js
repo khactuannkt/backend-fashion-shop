@@ -216,41 +216,39 @@ const getProductSearchResults = async (req, res) => {
 };
 
 const getProductRecommend = async (req, res) => {
-    const limit = parseInt(req.query.limit) || 12;
-    const page = parseInt(req.query.page) || 0;
-    const status = validateConstants(productQueryParams, 'status', 'default');
-    // const sortBy = validateConstants(productQueryParams, 'sort', req.query.sortBy || 'newest');
-    const sortBy = { totalSale: -1 };
+    const limit = parseInt(req.query.limit) > 0 ? parseInt(req.query.limit) : 12;
+    let page = parseInt(req.query.page) >= 0 ? parseInt(req.query.page) : 0;
+    const sortBy = validateConstants(productQueryParams, 'sort', 'default');
+    let statusFilter = validateConstants(productQueryParams, 'status', 'default');
     const productId = req.query.id || '';
-    let productName = null,
-        category = null;
+    let category = null;
     if (productId) {
         const product = await Product.findOne({ _id: productId });
         if (product) {
-            productName = product.name;
             category = product.category;
         }
     }
-    const keyword = productName
-        ? {
-              $text: {
-                  $search: productName,
-                  // $language: 'en',
-                  $caseSensitive: true,
-                  $diacriticSensitive: false,
-              },
-          }
-        : {};
-
-    const sort = productName ? { ...sortBy, score: { $meta: 'textScore' } } : { ...sortBy };
+    let categoryIds = [];
+    if (!category) {
+        categoryIds = await Category.find({ disabled: false }).select({ _id: 1 }).lean();
+    } else {
+        const findCategory = await Category.findOne({ _id: category, disabled: false })
+            .select({
+                _id: 1,
+                children: 1,
+            })
+            .lean();
+        if (findCategory) {
+            categoryIds.push(findCategory._id, ...findCategory.children);
+        }
+    }
+    const categoryFilter = categoryIds.length > 0 ? { category: categoryIds } : {};
 
     const productFilter = {
-        ...keyword,
-        ...status,
+        ...categoryFilter,
+        ...statusFilter,
     };
-    if (category) {
-        productFilter.category = category;
-    }
+
     const count = await Product.countDocuments(productFilter);
     //Check if product match keyword
     if (count == 0) {
@@ -259,32 +257,91 @@ const getProductRecommend = async (req, res) => {
             data: { products: [], page: 0, pages: 0, total: 0 },
         });
     }
-    const products = await Product.aggregate([
-        { $match: { ...productFilter } },
-        { $sample: { size: count } },
-        { $sort: { ...sort } },
-        { $skip: limit * page },
-        { $limit: limit },
-        { $lookup: { from: 'categories', localField: 'category', foreignField: '_id', as: 'category' } },
-        { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },
-        { $lookup: { from: 'variants', localField: 'variants', foreignField: '_id', as: 'variants' } },
-        { $addFields: { variants: { $ifNull: ['$variants', []] } } },
-    ])
-        // .limit(limit)
-        // .skip(limit * page)
-        // .sort({ sort })
-        .exec()
-        .then((results) => {
-            res.status(200).json({
-                message: 'Success',
-                data: { products: results, page, pages: Math.ceil(count / limit), total: count },
-            });
-        });
-    // .sort(sortBy)
-    // .populate('category')
-    // .populate('variants')
-    // .lean();
+    //else
+    const products = await Product.find(productFilter)
+        .limit(limit)
+        .skip(limit * page)
+        .sort(sortBy)
+        .populate('category')
+        .populate('variants')
+        .lean();
+
+    res.json({
+        message: 'Success',
+        data: { products, page, pages: Math.ceil(count / limit), total: count },
+    });
 };
+
+// const getProductRecommend = async (req, res) => {
+//     const limit = parseInt(req.query.limit) || 12;
+//     const page = parseInt(req.query.page) || 0;
+//     const status = validateConstants(productQueryParams, 'status', 'default');
+//     // const sortBy = validateConstants(productQueryParams, 'sort', req.query.sortBy || 'newest');
+//     const sortBy = { totalSale: -1 };
+//     const productId = req.query.id || '';
+//     let productName = null,
+//         category = null;
+//     if (productId) {
+//         const product = await Product.findOne({ _id: productId });
+//         if (product) {
+//             productName = product.name;
+//             category = product.category;
+//         }
+//     }
+//     const keyword = productName
+//         ? {
+//               $text: {
+//                   $search: productName,
+//                   // $language: 'en',
+//                   $caseSensitive: true,
+//                   $diacriticSensitive: false,
+//               },
+//           }
+//         : {};
+
+//     const sort = productName ? { ...sortBy, score: { $meta: 'textScore' } } : { ...sortBy };
+
+//     const productFilter = {
+//         ...keyword,
+//         ...status,
+//     };
+//     if (category) {
+//         productFilter.category = category;
+//     }
+//     const count = await Product.countDocuments(productFilter);
+//     //Check if product match keyword
+//     if (count == 0) {
+//         res.status(200).json({
+//             message: 'Success',
+//             data: { products: [], page: 0, pages: 0, total: 0 },
+//         });
+//     }
+//     const products = await Product.aggregate([
+//         { $match: { ...productFilter } },
+//         { $sample: { size: count } },
+//         { $sort: { ...sort } },
+//         { $skip: limit * page },
+//         { $limit: limit },
+//         { $lookup: { from: 'categories', localField: 'category', foreignField: '_id', as: 'category' } },
+//         { $unwind: { path: '$category', preserveNullAndEmptyArrays: true } },
+//         { $lookup: { from: 'variants', localField: 'variants', foreignField: '_id', as: 'variants' } },
+//         { $addFields: { variants: { $ifNull: ['$variants', []] } } },
+//     ])
+//         // .limit(limit)
+//         // .skip(limit * page)
+//         // .sort({ sort })
+//         .exec()
+//         .then((results) => {
+//             res.status(200).json({
+//                 message: 'Success',
+//                 data: { products: results, page, pages: Math.ceil(count / limit), total: count },
+//             });
+//         });
+//     // .sort(sortBy)
+//     // .populate('category')
+//     // .populate('variants')
+//     // .lean();
+// };
 
 const getAllProductsByAdmin = async (req, res) => {
     const products = await Product.find().sort({ createdAt: -1 }).lean();

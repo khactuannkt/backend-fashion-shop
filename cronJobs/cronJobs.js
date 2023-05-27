@@ -31,6 +31,23 @@ const deleteProduct = schedule.scheduleJob(`*/1440 * * * *`, async () => {
         });
     }
 });
+const autoConfirmOrder = schedule.scheduleJob(`*/1440 * * * *`, async () => {
+    console.log('update order .....................................................');
+    let expired = new Date();
+    expired.setDate(expired.getDate() - 7);
+    const findOrder = await Order.find({
+        status: 'delivered',
+        statusHistory: { $elemMatch: { status: 'delivered', createdAt: { $lte: expired } } },
+    });
+    console.log(findOrder);
+    const updateOrder = await Order.updateMany(
+        {
+            status: 'delivered',
+            statusHistory: { $elemMatch: { status: 'delivered', createdAt: { $lte: expired } } },
+        },
+        { $set: { status: 'completed' }, $push: { statusHistory: { status: 'completed' } } },
+    );
+});
 const removeExpiredDiscountCodeFromUser = schedule.scheduleJob(`*/60 * * * *`, async () => {
     console.log('delete discountCode .....................................................');
     const findDiscountCodes = await DiscountCode.distinct('_id', {

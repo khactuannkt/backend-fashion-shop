@@ -125,6 +125,7 @@ const updateDiscountCode = async (req, res) => {
         userUseMaximum,
         applyFor,
         applicableProducts,
+        updatedVersion,
     } = req.body;
     // Check id
     const discountCodeId = req.params.id || null;
@@ -141,6 +142,13 @@ const updateDiscountCode = async (req, res) => {
         }
         currentDiscountCode.code = code;
     }
+    if (currentDiscountCode.updatedVersion != updatedVersion) {
+        res.status(400);
+        throw new Error(
+            'Mã giảm giá vừa được cập nhật thông tin, vui lòng làm mới lại trang để lấy thông tin mới nhất',
+        );
+    }
+    currentDiscountCode.updatedVersion = Number(currentDiscountCode.updatedVersion) + 1;
 
     currentDiscountCode.name = name || currentDiscountCode.name;
     currentDiscountCode.discountType = discountType || currentDiscountCode.discountType;

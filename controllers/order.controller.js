@@ -573,18 +573,22 @@ const createOrder = async (req, res, next) => {
             let scheduledJob = schedule.scheduleJob(
                 `*/${process.env.PAYMENT_EXPIRY_TIME_IN_MINUTE} * * * *`,
                 async () => {
-                    console.log(`Đơn hàng "${orderInfor._id}" đã bị hủy `);
                     const foundOrder = await Order.findOne({
                         _id: orderInfor._id,
                     }).populate('paymentInformation');
                     if (!foundOrder.paymentInformation.paid) {
-                        foundOrder.statusHistory.push({
-                            status: 'cancelled',
-                            description: 'Đơn hàng bị hủy do chưa được thanh toán',
-                        });
-                        if (foundOrder.status != 'cancelled') {
+                        if (
+                            foundOrder.status != 'cancelled' &&
+                            foundOrder.status != 'delivered' &&
+                            foundOrder.status != 'completed'
+                        ) {
                             foundOrder.status = 'cancelled';
+                            foundOrder.statusHistory.push({
+                                status: 'cancelled',
+                                description: 'Đơn hàng bị hủy do chưa được thanh toán',
+                            });
                             await foundOrder.save();
+                            console.log(`Đơn hàng "${orderInfor._id}" đã bị hủy `);
                         }
                     }
                     scheduledJob.cancel();
@@ -832,6 +836,7 @@ const orderPaymentNotification = async (req, res) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
+    console.log(JSON.stringify(req.body));
     const orderId = req.body.orderId?.toString().trim() || '';
     if (!orderId) {
         res.status(400);
@@ -850,14 +855,18 @@ const orderPaymentNotification = async (req, res) => {
         throw new Error('Thông tin xác nhận thanh toán không hợp lệ');
     }
     if (req.body.resultCode != 0) {
-        const message = statusResponseFalse[req.body.resultCode] || statusResponseFalse[99];
-        order.statusHistory.push({ status: 'cancelled', description: message });
-        order.status = 'cancelled';
-        await order.save();
-        res.status(400);
-        throw new Error('Thanh toán thất bại');
+        if (foundOrder.status != 'cancelled' && foundOrder.status != 'delivered' && foundOrder.status != 'completed') {
+            const message = statusResponseFalse[req.body.resultCode] || statusResponseFalse[99];
+            order.statusHistory.push({ status: 'cancelled', description: message });
+            order.status = 'cancelled';
+            await order.save();
+            res.status(400);
+            throw new Error('Thanh toán thất bại');
+        }
     } else {
-        order.statusHistory.push({ status: 'paid', updateBy: order.user });
+        // if (foundOrder.status != 'cancelled') {
+        //     order.statusHistory.push({ status: 'paid', updateBy: order.user });
+        // }
         order.paymentInformation.paid = true;
         order.paymentInformation.paidAt = new Date();
         await order.paymentInformation.save();
