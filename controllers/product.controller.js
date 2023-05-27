@@ -246,6 +246,7 @@ const getProductRecommend = async (req, res) => {
 
     const productFilter = {
         ...keyword,
+        ...status,
     };
     if (category) {
         productFilter.category = category;
