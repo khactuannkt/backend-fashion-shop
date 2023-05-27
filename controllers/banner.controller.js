@@ -58,6 +58,7 @@ const updateBanner = async (req, res) => {
         const message = errors.array()[0].msg;
         return res.status(400).json({ message: message });
     }
+    const { title, image, linkTo, updatedVersion } = req.body;
 
     const banner = await Banner.findOne({ _id: req.params.id });
     if (!banner) {
@@ -68,7 +69,6 @@ const updateBanner = async (req, res) => {
         throw new Error('Ảnh bìa vừa được cập nhật thông tin, vui lòng làm mới lại trang để lấy thông tin mới nhất');
     }
     banner.updatedVersion = Number(banner.updatedVersion) + 1;
-    const { title, image, linkTo } = req.body;
     const imageFile = req.body.imageFile ? JSON.parse(req.body.imageFile) : '';
     let imageUrl = '';
     if (imageFile && imageFile.trim() !== '') {

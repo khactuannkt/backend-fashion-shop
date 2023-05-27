@@ -38,8 +38,6 @@
         "slug": "^8.2.2",
         "swagger-ui-express": "^4.5.0",
         "uuid": "^9.0.0",
-        "winston": "^3.8.2",
-        "winston-mongodb": "^5.1.1",
         "yamljs": "^0.3.0"
     },
     "description": ""
