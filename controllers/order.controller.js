@@ -864,9 +864,9 @@ const orderPaymentNotification = async (req, res) => {
             throw new Error('Thanh toán thất bại');
         }
     } else {
-        // if (foundOrder.status != 'cancelled') {
-        //     order.statusHistory.push({ status: 'paid', updateBy: order.user });
-        // }
+        if (foundOrder.status != 'cancelled') {
+            order.statusHistory.push({ status: 'paid', updateBy: order.user });
+        }
         order.paymentInformation.paid = true;
         order.paymentInformation.paidAt = new Date();
         await order.paymentInformation.save();
