@@ -24,7 +24,7 @@ const getProducts = async (req, res) => {
               $text: {
                   $search: req.query.keyword,
                   // $language: 'en',
-                  $caseSensitive: true,
+                  $caseSensitive: false,
                   $diacriticSensitive: false,
               },
           }

@@ -578,9 +578,10 @@ const createOrder = async (req, res, next) => {
                     }).populate('paymentInformation');
                     if (!foundOrder.paymentInformation.paid) {
                         if (
-                            foundOrder.status != 'cancelled' &&
-                            foundOrder.status != 'delivered' &&
-                            foundOrder.status != 'completed'
+                            foundOrder.status != 'cancelled'
+                            // &&
+                            // foundOrder.status != 'delivered' &&
+                            // foundOrder.status != 'completed'
                         ) {
                             foundOrder.status = 'cancelled';
                             foundOrder.statusHistory.push({
